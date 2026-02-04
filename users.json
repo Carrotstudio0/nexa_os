@@ -1,0 +1,18 @@
+{
+  "admin": {
+    "password": "$2a$10$w1Qw1Qw1Qw1Qw1Qw1Qe1Qw1Qw1Qw1Qw1Qw1Qw1Qw1Qw1Qw1Qw1Qw1Q",
+    "role": "admin"
+  },
+  "user1": {
+    "password": "$2a$10$w1Qw1Qw1Qw1Qw1Qw1Qe1Qw1Qw1Qw1Qw1Qw1Qw1Qw1Qw1Qw1Qw1Qw1Q",
+    "role": "user"
+  },
+  "user2": {
+    "password": "$2a$10$w1Qw1Qw1Qw1Qw1Qw1Qe1Qw1Qw1Qw1Qw1Qw1Qw1Qw1Qw1Qw1Qw1Qw1Q",
+    "role": "user"
+  },
+  "guest": {
+    "password": "$2a$10$w1Qw1Qw1Qw1Qw1Qw1Qe1Qw1Qw1Qw1Qw1Qw1Qw1Qw1Qw1Qw1Qw1Qw1Q",
+    "role": "guest"
+  }
+}

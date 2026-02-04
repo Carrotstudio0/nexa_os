@@ -10,38 +10,47 @@ import (
 )
 
 // DNS Commands
-const (
-	DNS_RESOLVE  = "RESOLVE"  // Get IP:PORT for name
-	DNS_REGISTER = "REGISTER" // Regsiter new name
-	DNS_UPDATE   = "UPDATE"   // Update existing name
-	DNS_DELETE   = "DELETE"   // Delete name
-	DNS_LIST     = "LIST"     // List all records
-	DNS_PING     = "PING"     // Health Check
+import (
+	"crypto/tls"
+	"log"
 )
 
-// Resonse Status Codes
-const (
-	STATUS_OK        = 200
-	STATUS_CREATED   = 201
-	STATUS_BAD_REQ   = 400
-	STATUS_NOT_FOUND = 404
-	STATUS_CONFLICT  = 409
-	STATUS_ERROR     = 500
-)
+func main() {
+	fmt.Println("DNS Server starting with TLS on :1112")
 
-// dns record represents a dns entry
-type DNSRecord struct {
-	Name      string
-	IP        string
-	Port      int
-	Service   string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	registry = NewDNSRegistery()
+
+	cert, err := tls.LoadX509KeyPair("../certs/cert.pem", "../certs/key.pem")
+	if err != nil {
+		log.Fatalf("failed to load TLS cert or key: %v", err)
+	}
+	tlsConfig := &tls.Config{Certificates: []tls.Certificate{cert}}
+
+	ln, err := tls.Listen("tcp", "0.0.0.0:1112", tlsConfig)
+	if err != nil {
+		panic(err)
+	}
+	defer ln.Close()
+
+	fmt.Println("--- DNS Server ready (TLS) ---")
+	fmt.Println("--- Deafult Records ----")
+	for _, rec := range registry.List() {
+		fmt.Printf("\t%s -> %s:%d (%s)\n", rec.Name, rec.IP, rec.Port, rec.Service)
+	}
+
+	fmt.Println()
+
+	for {
+		conn, err := ln.Accept()
+		if err != nil {
+			fmt.Println("Accept error:", err)
+			continue
+		}
+
+		fmt.Printf("DNS query from %s\n", conn.RemoteAddr())
+		go handleDNS(conn)
+	}
 }
-
-// dns registery store all dns records
-type DNSRegistry struct {
-	mu      sync.RWMutex
 	records map[string]*DNSRecord
 }
 

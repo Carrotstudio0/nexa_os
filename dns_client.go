@@ -2,8 +2,8 @@ package main
 
 import (
 	"bufio"
+	"crypto/tls"
 	"fmt"
-	"net"
 	"os"
 	"strings"
 )
@@ -14,11 +14,11 @@ func main() {
 		return
 	}
 
-	// Connect to DNS server
-	conn, err := net.Dial("tcp", "localhost:1112")
+	// Connect to DNS server (TLS)
+	conn, err := tls.Dial("tcp", "localhost:1112", &tls.Config{InsecureSkipVerify: true})
 	if err != nil {
-		fmt.Printf("DNS connection failed: %v\n", err)
-		fmt.Println("Make sure DNS server is running on port 1112")
+		fmt.Printf("DNS TLS connection failed: %v\n", err)
+		fmt.Println("Make sure DNS server is running on port 1112 (TLS)")
 		return
 	}
 	defer conn.Close()

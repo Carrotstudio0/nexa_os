@@ -2,8 +2,8 @@ package main
 
 import (
 	"bufio"
+	"crypto/tls"
 	"fmt"
-	"net"
 	"os"
 	"strings"
 )
@@ -43,14 +43,14 @@ func main() {
 		serverAddr = "localhost:1413"
 	}
 
-	conn, err := net.Dial("tcp", serverAddr)
+	conn, err := tls.Dial("tcp", serverAddr, &tls.Config{InsecureSkipVerify: true})
 	if err != nil {
-		fmt.Printf("Connection to %s failed: %v\n", serverAddr, err)
+		fmt.Printf("TLS connection to %s failed: %v\n", serverAddr, err)
 		return
 	}
 	defer conn.Close()
 
-	fmt.Println("Connected to Nexa Server")
+	fmt.Println("Connected to Nexa Server (TLS)")
 
 	command := strings.Join(args, " ")
 
@@ -82,7 +82,7 @@ func main() {
 
 // resolveDNS queries the DNS server and returns IP:Port
 func resolveDNS(name string) (string, error) {
-	conn, err := net.Dial("tcp", DNS_SERVER)
+	conn, err := tls.Dial("tcp", DNS_SERVER, &tls.Config{InsecureSkipVerify: true})
 	if err != nil {
 		return "", fmt.Errorf("DNS server unreachable: %v", err)
 	}

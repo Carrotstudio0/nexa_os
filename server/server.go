@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-var SERVER_PORT = ":1413"
+var SERVER_PORT = "0.0.0.0:1413"
 
 // Protocol Commands
 const (
@@ -44,24 +44,33 @@ type Response struct {
 // in-memory storage
 var storage = make(map[string]string)
 
+import (
+	"crypto/tls"
+	"log"
+)
+
 func main() {
+	fmt.Println("Server running with TLS on port:", SERVER_PORT)
 
-	fmt.Println("Server running on port:", SERVER_PORT)
+	// إعداد إعدادات TLS
+	cert, err := tls.LoadX509KeyPair("../certs/cert.pem", "../certs/key.pem")
+	if err != nil {
+		log.Fatalf("failed to load TLS cert or key: %v", err)
+	}
+	tlsConfig := &tls.Config{Certificates: []tls.Certificate{cert}}
 
-	ln, err := net.Listen("tcp", SERVER_PORT)
+	ln, err := tls.Listen("tcp", SERVER_PORT, tlsConfig)
 	if err != nil {
 		panic(err)
 	}
-
 	defer ln.Close()
 
-	fmt.Println("Server is ready, Waiting for connections")
+	fmt.Println("Server is ready with TLS, Waiting for connections")
 
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
 			fmt.Println("Accept Error: ", err)
-			// cause it's a while loop
 			continue
 		}
 

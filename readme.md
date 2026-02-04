@@ -26,6 +26,14 @@ nexa/
 └── go.mod
 ```
 
+
+## TLS/SSL Encryption Support
+
+**All connections (server, DNS, client) now use TLS encryption by default.**
+
+- شهادات TLS ذاتية التوقيع موجودة في مجلد `certs/`
+- عند التشغيل، جميع الأطراف تستخدم الاتصال المشفر (InsecureSkipVerify=true للعمل التجريبي)
+
 ## How it Works
 
 ### The Flow
@@ -73,64 +81,59 @@ Or just run them directly with `go run`.
 
 ## Quick Start
 
-### Step 1: Start the DNS Server
 
-Open a terminal:
+### Step 1: Start the DNS Server (TLS)
+
+افتح نافذة طرفية:
 
 ```bash
 cd dns
 go run dns_server.go
 ```
 
-You should see:
+يجب أن ترى:
 ```
-Nexa DNS Server starting on :1112
-DNS Server ready
-Default records:
-   mysite.nexa -> 127.0.0.1:1413 (web)
-   storage.nexa -> 127.0.0.1:1413 (storage)
+DNS Server starting with TLS on :1112
+--- DNS Server ready (TLS) ---
+... (default records)
 ```
 
-Keep this running.
+### Step 2: Start the Nexa Server (TLS)
 
-### Step 2: Start the Nexa Server
-
-Open another terminal:
+افتح نافذة طرفية أخرى:
 
 ```bash
 cd server
 go run server.go
 ```
 
-You should see:
+يجب أن ترى:
 ```
-Nexa Server starting on :1413
-Server ready. Waiting for connections...
+Server running with TLS on port: :1413
+Server is ready with TLS, Waiting for connections
 ```
 
-Keep this running too.
+### Step 3: Use the Client (TLS)
 
-### Step 3: Use the Client
-
-Open a third terminal and try these commands:
+افتح نافذة طرفية ثالثة وجرب الأوامر:
 
 ```bash
-# Test basic connectivity
+# اختبار الاتصال
 go run client/client.go PING
 
-# Store some content (direct, no DNS)
+# تخزين بيانات
 go run client/client.go PUBLISH homepage "Welcome to Nexa"
 
-# Retrieve it
+# جلب البيانات
 go run client/client.go FETCH homepage
 
-# List everything stored
+# عرض كل البيانات
 go run client/client.go LIST
 
-# Now try with DNS resolution
+# جلب بيانات عبر DNS
 go run client/client.go FETCH mysite.nexa
 
-# Store content using a DNS name
+# تخزين بيانات باسم DNS
 go run client/client.go PUBLISH mysite.nexa "Hello from DNS"
 ```
 
