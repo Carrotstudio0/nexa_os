@@ -2,7 +2,9 @@ package main
 
 import (
 	"bufio"
+	"crypto/tls"
 	"fmt"
+	"log"
 	"net"
 	"strings"
 	"time"
@@ -43,11 +45,6 @@ type Response struct {
 
 // in-memory storage
 var storage = make(map[string]string)
-
-import (
-	"crypto/tls"
-	"log"
-)
 
 func main() {
 	fmt.Println("Server running with TLS on port:", SERVER_PORT)

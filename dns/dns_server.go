@@ -2,7 +2,9 @@ package main
 
 import (
 	"bufio"
+	"crypto/tls"
 	"fmt"
+	"log"
 	"net"
 	"strings"
 	"sync"
@@ -10,10 +12,36 @@ import (
 )
 
 // DNS Commands
-import (
-	"crypto/tls"
-	"log"
+const (
+	DNS_PING     = "PING"
+	DNS_RESOLVE  = "RESOLVE"
+	DNS_REGISTER = "REGISTER"
+	DNS_UPDATE   = "UPDATE"
+	DNS_DELETE   = "DELETE"
+	DNS_LIST     = "LIST"
+
+	STATUS_OK        = 200
+	STATUS_CREATED   = 201
+	STATUS_BAD_REQ   = 400
+	STATUS_NOT_FOUND = 404
+	STATUS_CONFLICT  = 409
 )
+
+type DNSRecord struct {
+	Name      string
+	IP        string
+	Port      int
+	Service   string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type DNSRegistry struct {
+	mu      sync.RWMutex
+	records map[string]*DNSRecord
+}
+
+var registry *DNSRegistry
 
 func main() {
 	fmt.Println("DNS Server starting with TLS on :1112")
@@ -51,8 +79,6 @@ func main() {
 		go handleDNS(conn)
 	}
 }
-	records map[string]*DNSRecord
-}
 
 func NewDNSRegistery() *DNSRegistry {
 	registery := &DNSRegistry{
@@ -80,7 +106,6 @@ func NewDNSRegistery() *DNSRegistry {
 	}
 
 	return registery
-
 }
 
 func (r *DNSRegistry) Resolve(name string) (*DNSRecord, bool) {
@@ -143,41 +168,6 @@ func (r *DNSRegistry) List() []*DNSRecord {
 	}
 
 	return records
-}
-
-var registry *DNSRegistry
-
-func main() {
-	fmt.Println("DNS Server starting on :1112")
-
-	registry = NewDNSRegistery()
-
-	ln, err := net.Listen("tcp", ":1112")
-
-	if err != nil {
-		panic(err)
-	}
-
-	defer ln.Close()
-
-	fmt.Println("--- DNS Server ready ---")
-	fmt.Println("--- Deafult Records ----")
-	for _, rec := range registry.List() {
-		fmt.Printf("	%s -> %s:%d (%s)\n", rec.Name, rec.IP, rec.Port, rec.Service)
-	}
-
-	fmt.Println()
-
-	for {
-		conn, err := ln.Accept()
-		if err != nil {
-			fmt.Println("Accept error:", err)
-			continue
-		}
-
-		fmt.Printf("DNS query from %s\n", conn.RemoteAddr())
-		go handleDNS(conn)
-	}
 }
 
 func handleDNS(conn net.Conn) {
