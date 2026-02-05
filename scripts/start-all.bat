@@ -41,22 +41,33 @@ if /i "!HOTSPOT!" neq "Y" goto :START_MATRIX
 echo.
 echo %CYN%[HOTSPOT]%RST% %GRA%Initializing wireless transmission...%RST%
 
-rem Check for scripts
+set "SCRIPT_FOUND=N"
+set "SCRIPT_PATH="
+
+:: Try different relative paths
 if exist "..\scripts\enable-hotspot.ps1" (
-    powershell -ExecutionPolicy Bypass -File "..\scripts\enable-hotspot.ps1"
-) else if exist "..\scripts\detect-hotspot.ps1" (
-    powershell -ExecutionPolicy Bypass -File "..\scripts\detect-hotspot.ps1" -TimeoutSeconds 20
-) else (
-    echo   %RED%✖ Hotspot scripts and resources not found in \scripts%RST%
+    set "SCRIPT_PATH=..\scripts\enable-hotspot.ps1"
+    set "SCRIPT_FOUND=Y"
+) else if exist "scripts\enable-hotspot.ps1" (
+    set "SCRIPT_PATH=scripts\enable-hotspot.ps1"
+    set "SCRIPT_FOUND=Y"
 )
 
-if !errorlevel! equ 0 (
-    echo   %GRN%✓ Hotspot Layer Enabled%RST%
+if "!SCRIPT_FOUND!"=="Y" (
+    powershell -ExecutionPolicy Bypass -File "!SCRIPT_PATH!"
+    if !errorlevel! equ 0 (
+        echo   %GRN%✓ Hotspot Layer Enabled%RST%
+    ) else (
+        echo   %RED%✖ Hotspot initialization failed. Continuing with local network.%RST%
+        pause
+    )
 ) else (
-    echo   %RED%✖ Hotspot initialization failed. Continuing with local network.%RST%
+    echo   %RED%✖ Hotspot scripts not found in \scripts%RST%
+    echo   %GRA%Ensure the 'scripts' folder exists in the installation directory.%RST%
     pause
 )
 echo.
+
 
 :START_MATRIX
 :: --- Unified Service Matrix Initialization ---

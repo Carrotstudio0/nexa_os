@@ -26,8 +26,16 @@ echo %CYN%NEXA ULTIMATE v3.1 - BUILD SYSTEM%RST%
 echo %GRA%════════════════════════════════════════════════════════%RST%
 echo.
 
-cd /d "%~dp0"
-cd ..
+:: Navigate to project root
+cd /d "%~dp0.."
+
+:: Verify go.mod existence
+if not exist "go.mod" (
+    echo %RED%[!] ERROR: go.mod not found in %CD%%RST%
+    echo %GRA%Ensure you are running the script from within the NEXA project structure.%RST%
+    pause
+    exit /b 1
+)
 
 :: Cleanup
 echo %BLU%[CLEANUP]%RST% %GRA%Stopping services and clearing bin...%RST%
@@ -39,8 +47,8 @@ taskkill /F /IM admin.exe >nul 2>&1
 taskkill /F /IM web.exe >nul 2>&1
 taskkill /F /IM dashboard.exe >nul 2>&1
 
-if not exist bin mkdir bin
-del /F /Q bin\*.exe >nul 2>&1
+if not exist "bin" mkdir "bin"
+del /F /Q "bin\*.exe" >nul 2>&1
 
 :: Verify
 echo %BLU%[VERIFY]%RST% %GRA%Tidying modules...%RST%
@@ -52,13 +60,14 @@ echo %BLU%[BUILD]%RST% %GRA%Compiling all services...%RST%
 set "SERVICES=nexa dns server gateway admin web dashboard chat"
 for %%s in (%SERVICES%) do (
     echo   Compiling %%s.exe...
-    go build -o bin\%%s.exe .\cmd\%%s
+    go build -o "bin\%%s.exe" ".\cmd\%%s"
     if !errorlevel! neq 0 (
         echo   %RED%✖ Failed to build %%s%RST%
         pause
         exit /b 1
     )
 )
+
 
 :: Resources
 echo.
