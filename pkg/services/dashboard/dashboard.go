@@ -1,4 +1,4 @@
-package main
+package dashboard
 
 import (
 	"fmt"
@@ -125,20 +125,24 @@ func handleProxyChat(w http.ResponseWriter, r *http.Request) {
 	io.Copy(w, resp.Body)
 }
 
-func main() {
-	utils.PrintBanner("NEXA DASHBOARD", "v3.1")
+func Start() {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", handleDashboard)
+	mux.HandleFunc("/storage/", handleProxyFiles)
+	mux.HandleFunc("/admin/", handleProxyAdmin)
+	mux.HandleFunc("/chat/", handleProxyChat)
+
 	localIP := utils.GetLocalIP()
 	utils.LogInfo("Dashboard", fmt.Sprintf("Web Interface:     http://%s:%s", localIP, config.DashboardPort))
 	utils.SaveEndpoint("dashboard", fmt.Sprintf("http://%s:%s", localIP, config.DashboardPort))
-	utils.LogSuccess("Dashboard", "DASHBOARD READY")
 
-	http.HandleFunc("/", handleDashboard)
-	http.HandleFunc("/storage/", handleProxyFiles)
-	http.HandleFunc("/admin/", handleProxyAdmin)
-	http.HandleFunc("/chat/", handleProxyChat)
+	server := &http.Server{
+		Addr:    ":" + config.DashboardPort,
+		Handler: mux,
+	}
 
-	if err := http.ListenAndServe(":"+config.DashboardPort, nil); err != nil {
-		utils.LogFatal("Dashboard", "Server error: "+err.Error())
+	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		utils.LogFatal("Dashboard", err.Error())
 	}
 }
 

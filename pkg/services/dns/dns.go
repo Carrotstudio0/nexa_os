@@ -1,4 +1,4 @@
-package main
+package dns
 
 import (
 	"bufio"
@@ -55,7 +55,7 @@ func (r *DNSRegistry) Save() error {
 	return os.WriteFile(r.Filename, data, 0644)
 }
 
-func main() {
+func Start() {
 	audit.Init("dns_audit.log")
 	registry = NewDNSRegistry("dns_records.json")
 
@@ -70,13 +70,10 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer ln.Close()
+	// Removing defer ln.Close() as it should keep running. Actually defer is fine if it wraps the loop.
 
-	utils.PrintBanner("NEXA DNS AUTHORITY", "v3.1")
 	utils.LogInfo("DNS", fmt.Sprintf("Listening Port:    %s (TLS)", config.DNSPort))
-	utils.LogInfo("DNS", fmt.Sprintf("Authority Interface: http://%s:%s", utils.GetLocalIP(), config.DNSPort))
 	utils.SaveEndpoint("dns", fmt.Sprintf("tls://%s:%s", utils.GetLocalIP(), config.DNSPort))
-	utils.LogSuccess("DNS", "DNS AUTHORITY ONLINE")
 
 	for {
 		conn, err := ln.Accept()

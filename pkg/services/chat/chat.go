@@ -1,4 +1,4 @@
-package main
+package chat
 
 import (
 	"encoding/json"
@@ -89,7 +89,7 @@ func handleUI(w http.ResponseWriter, r *http.Request) {
 	tmpl.Execute(w, data)
 }
 
-func main() {
+func Start() {
 	messages = append(messages, Message{
 		ID:        time.Now().UnixNano(),
 		Sender:    "System",
@@ -98,17 +98,21 @@ func main() {
 		IsAdmin:   true,
 	})
 
-	http.HandleFunc("/", handleUI)
-	http.HandleFunc("/api/messages", enableCORS(handleMessages))
-	http.HandleFunc("/api/send", enableCORS(handleSend))
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", handleUI)
+	mux.HandleFunc("/api/messages", enableCORS(handleMessages))
+	mux.HandleFunc("/api/send", enableCORS(handleSend))
 
 	localIP := utils.GetLocalIP()
-	utils.PrintBanner("NEXA QUANTUM CHAT", "v3.1")
 	utils.LogInfo("Chat", fmt.Sprintf("Web Interface:     http://%s:%s", localIP, config.ChatPort))
 	utils.SaveEndpoint("chat", fmt.Sprintf("http://%s:%s", localIP, config.ChatPort))
-	utils.LogSuccess("Chat", "CHAT SERVER READY")
 
-	if err := http.ListenAndServe(":"+config.ChatPort, nil); err != nil {
+	server := &http.Server{
+		Addr:    ":" + config.ChatPort,
+		Handler: mux,
+	}
+
+	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		utils.LogFatal("Chat", err.Error())
 	}
 }

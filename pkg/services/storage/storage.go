@@ -1,11 +1,10 @@
-package main
+package storage
 
 import (
 	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -315,7 +314,7 @@ type FileInfo struct {
 	Icon    string
 }
 
-func main() {
+func Start() {
 	// Ensure professional storage structure
 	subDirs := []string{"incoming", "shared", "vault", "temp"}
 	for _, sub := range subDirs {
@@ -325,21 +324,27 @@ func main() {
 		}
 	}
 
-	http.HandleFunc("/", enableCORS(dirHandler))
-	http.HandleFunc("/upload", enableCORS(uploadHandler))
-	http.HandleFunc("/delete", enableCORS(deleteHandler))
-	http.HandleFunc("/download", enableCORS(downloadHandler))
-	http.HandleFunc("/api/stats", enableCORS(statsHandler))
-	http.HandleFunc("/api/list", enableCORS(listHandler))
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", enableCORS(dirHandler))
+	mux.HandleFunc("/upload", enableCORS(uploadHandler))
+	mux.HandleFunc("/delete", enableCORS(deleteHandler))
+	mux.HandleFunc("/download", enableCORS(downloadHandler))
+	mux.HandleFunc("/api/stats", enableCORS(statsHandler))
+	mux.HandleFunc("/api/list", enableCORS(listHandler))
 
 	localIP := utils.GetLocalIP()
-	utils.PrintBanner("NEXA DISK STORAGE", "v3.1")
 	utils.LogInfo("Storage", fmt.Sprintf("Storage Root:      %s", StorageRoot))
 	utils.LogInfo("Storage", fmt.Sprintf("Web Interface:     http://%s:%s", localIP, Port))
 	utils.SaveEndpoint("storage", fmt.Sprintf("http://%s:%s", localIP, Port))
-	utils.LogSuccess("Storage", "STORAGE SERVER READY")
 
-	log.Fatal(http.ListenAndServe("0.0.0.0:"+Port, nil))
+	server := &http.Server{
+		Addr:    "0.0.0.0:" + Port,
+		Handler: mux,
+	}
+
+	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		utils.LogFatal("Storage", err.Error())
+	}
 }
 
 func enableCORS(next http.HandlerFunc) http.HandlerFunc {

@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"bufio"
@@ -24,7 +24,7 @@ var (
 	networkManager *network.NetworkManager
 )
 
-func main() {
+func Start() {
 	var err error
 
 	// Initialize Blockchain Ledger
@@ -89,14 +89,10 @@ func main() {
 	if err != nil {
 		utils.LogFatal("Server", "Listener failed: "+err.Error())
 	}
-	defer ln.Close()
 
-	utils.PrintBanner("NEXA CORE SERVER", "v3.1")
-	utils.LogInfo("Server", "TLS Security:     ENABLED 🔒")
 	utils.LogInfo("Server", fmt.Sprintf("Blockchain Height: %d blocks", len(chain.Chain)))
 	utils.LogInfo("Server", fmt.Sprintf("Listening Port:    %s", config.ServerPort))
 	utils.SaveEndpoint("core", fmt.Sprintf("tcp://%s:%s", localIP, config.ServerPort))
-	utils.LogSuccess("Server", "SYSTEM READY")
 
 	for {
 		conn, err := ln.Accept()

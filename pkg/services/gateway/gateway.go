@@ -1,11 +1,10 @@
-package main
+package gateway
 
 import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"html/template"
-	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -46,7 +45,7 @@ func init() {
 	startTime = time.Now()
 }
 
-func main() {
+func Start() {
 	// Initialize router
 	r := chi.NewRouter()
 
@@ -161,15 +160,12 @@ func main() {
 	r.Route("/admin", func(r chi.Router) {
 		r.Handle("/*", http.StripPrefix("/admin", adminProxy))
 	})
-
 	r.Route("/storage", func(r chi.Router) {
 		r.Handle("/*", http.StripPrefix("/storage", webProxy))
 	})
-
 	r.Route("/chat", func(r chi.Router) {
 		r.Handle("/*", http.StripPrefix("/chat", chatProxy))
 	})
-
 	r.Route("/dashboard", func(r chi.Router) {
 		r.Handle("/*", http.StripPrefix("/dashboard", dashboardProxy))
 	})
@@ -177,30 +173,13 @@ func main() {
 	// Root Gateway Page
 	r.Get("/", handleGatewayHome)
 
-	// 404 Handler
-	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "Route not found",
-			"path":  r.URL.Path,
-		})
-	})
-
 	localIP := utils.GetLocalIP()
-	utils.PrintBanner("NEXA ULTIMATE GATEWAY", "v3.1")
 	utils.LogInfo("Gateway", fmt.Sprintf("Public Address:    http://%s:%s", localIP, GatewayPort))
-	utils.LogInfo("Gateway", fmt.Sprintf("Route: /admin  ->  %s", AdminTarget))
-	utils.LogInfo("Gateway", fmt.Sprintf("Route: /files  ->  %s", WebTarget))
 	utils.SaveEndpoint("gateway", fmt.Sprintf("http://%s:%s", localIP, GatewayPort))
-	utils.LogSuccess("Gateway", "GATEWAY ONLINE")
 
 	if err := http.ListenAndServe(":"+GatewayPort, r); err != nil {
-		log.Fatalf("Server error: %v", err)
+		utils.LogFatal("Gateway", err.Error())
 	}
-
-	// Cleanup
-	networkMgr.StopMonitoring()
-	expansionMgr.Stop()
 }
 
 // Cleanup

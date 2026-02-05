@@ -1,4 +1,4 @@
-package main
+package admin
 
 const LoginHTML = `<!DOCTYPE html>
 <html lang="ar" dir="rtl">

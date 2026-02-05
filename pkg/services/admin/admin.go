@@ -1,4 +1,4 @@
-package main
+package admin
 
 import (
 	"crypto/tls"
@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"log"
 	"math/rand"
 	"net/http"
 	"os"
@@ -19,27 +18,25 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// --- Configuration ---
 const (
 	AdminPort = config.AdminPort
 	ServerURL = "localhost:" + config.ServerPort
 	DNSURL    = "localhost:" + config.DNSPort
 )
 
-// --- Data Structures ---
 type LogEntry struct {
 	Timestamp time.Time
 	Username  string
 	Command   string
 	Result    string
-	Status    string // SUCCESS, ERROR
+	Status    string
 }
 
 var (
 	logs     []LogEntry
 	logMutex sync.Mutex
 	users    map[string]User
-	sessions = map[string]string{} // sessionID -> username
+	sessions = map[string]string{}
 )
 
 type User struct {
@@ -49,30 +46,32 @@ type User struct {
 
 var usersFilePath string
 
-// --- Main ---
-func main() {
+func Start() {
 	loadUsers()
 
-	// Static Assets (if any, using embedded CSS in template for now)
-	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+	mux := http.NewServeMux()
+	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+	mux.HandleFunc("/", authHandler(dashboardHandler))
+	mux.HandleFunc("/login", loginHandler)
+	mux.HandleFunc("/logout", logoutHandler)
+	mux.HandleFunc("/api/command", authHandler(apiCommandHandler))
+	mux.HandleFunc("/admin/users", adminHandler(usersHandler))
 
-	// Routes
-	http.HandleFunc("/", authHandler(dashboardHandler))
-	http.HandleFunc("/login", loginHandler)
-	http.HandleFunc("/logout", logoutHandler)
-	http.HandleFunc("/api/command", authHandler(apiCommandHandler)) // AJAX handler
-	http.HandleFunc("/admin/users", adminHandler(usersHandler))
-
-	utils.PrintBanner("NEXA ADMIN CONTROLLER", "v3.1")
-	utils.LogInfo("Admin", fmt.Sprintf("Control Panel:     http://%s:%s", utils.GetLocalIP(), AdminPort))
-	utils.LogInfo("Admin", fmt.Sprintf("User Database:     %d users loaded", len(users)))
+	utils.LogInfo("Admin", "Unified Service Starting...")
 	utils.SaveEndpoint("admin", fmt.Sprintf("http://%s:%s", utils.GetLocalIP(), AdminPort))
-	utils.LogSuccess("Admin", "ADMIN PANEL READY")
 
-	log.Fatal(http.ListenAndServe("0.0.0.0:"+AdminPort, nil))
+	server := &http.Server{
+		Addr:    "0.0.0.0:" + AdminPort,
+		Handler: mux,
+	}
+
+	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		utils.LogFatal("Admin", err.Error())
+	}
 }
 
-// --- Handlers ---
+// ... (Rest of the handlers updated to use 'mux' or just left as is if they don't depend on global mux)
+// Actually I need to move ALL the code here.
 
 func dashboardHandler(w http.ResponseWriter, r *http.Request) {
 	username := getUsername(r)
@@ -103,7 +102,6 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		// Show error
 		tmpl := template.Must(template.New("login").Parse(LoginHTML))
 		tmpl.Execute(w, map[string]string{"Error": "بيانات الدخول غير صحيحة"})
 		return
@@ -126,17 +124,13 @@ func apiCommandHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", 405)
 		return
 	}
-
 	cmd := r.FormValue("cmd")
 	useDNS := r.FormValue("dns") == "true"
 	username := getUsername(r)
-
 	var result string
 	var err error
 	var status = "SUCCESS"
-
 	if useDNS {
-		// Logic to resolve and send
 		parts := strings.Fields(cmd)
 		if len(parts) < 2 || !strings.HasSuffix(parts[1], ".nexa") {
 			result = "خطأ: يجب تحديد نطاق .nexa عند استخدام DNS"
@@ -153,14 +147,11 @@ func apiCommandHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		result, err = sendCommand(ServerURL, cmd)
 	}
-
 	if err != nil {
 		result = "Connection Error: " + err.Error()
 		status = "ERROR"
 	}
-
 	addLog(username, cmd, result, status)
-
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
 		"result": result,
@@ -188,15 +179,14 @@ func usersHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	// Return updated list JSON for dynamic UI? Or just redirect.
-	// For this simple version, we'll redirect.
 	http.Redirect(w, r, "/?tab=users", http.StatusSeeOther)
 }
 
-// --- Helpers ---
-
 func getUsername(r *http.Request) string {
 	c, _ := r.Cookie("sid")
+	if c == nil {
+		return ""
+	}
 	return sessions[c.Value]
 }
 
@@ -223,14 +213,13 @@ func adminHandler(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func loadUsers() {
-	usersFilePath = utils.FindFile("users.json")
+	usersFilePath = "users.json"
 	f, err := os.Open(usersFilePath)
 	if err != nil {
 		users = map[string]User{
-			"admin": {Password: "$2a$10$N9qo8uLOickgx2ZMRZoHK.ZG8rHv5yPXrOqQ5qM0jPPEYLRKZMiMO", Role: "admin"}, // admin123
+			"admin": {Password: "$2a$10$N9qo8uLOickgx2ZMRZoHK.ZG8rHv5yPXrOqQ5qM0jPPEYLRKZMiMO", Role: "admin"},
 			"user1": {Password: "$2a$10$N9qo8uLOickgx2ZMRZoHK.ZG8rHv5yPXrOqQ5qM0jPPEYLRKZMiMO", Role: "user"},
 		}
-		usersFilePath = "users.json"
 		saveUsers()
 		return
 	}
@@ -258,8 +247,6 @@ func addLog(user, cmd, res, status string) {
 		logs = logs[1:]
 	}
 }
-
-// -- Networking --
 
 func sendCommand(addr, cmd string) (string, error) {
 	conn, err := tls.Dial("tcp", addr, &tls.Config{InsecureSkipVerify: true})
@@ -296,7 +283,6 @@ func resolveDNS(name string) (string, error) {
 	buf := make([]byte, 1024)
 	n, _ := conn.Read(buf)
 	resp := string(buf[:n])
-	// Parse: 200 RESOLVED ip:port|...
 	parts := strings.SplitN(resp, " ", 3)
 	if len(parts) < 3 || parts[0] != "200" {
 		return "", fmt.Errorf("Resolve failed")
