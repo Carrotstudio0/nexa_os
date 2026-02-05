@@ -51,13 +51,26 @@ func main() {
 	}
 	defer ln.Close()
 
-	fmt.Printf("⚡ Nexa Protocol Node running on port %s (TLS)\n", nexa.PORT_SERVER)
-	fmt.Printf("   Blockchain Height: %d blocks\n", len(chain.Chain))
+	// Professional Startup Banner
+	fmt.Println(`
+    _   _                      ____                                   
+   | \ | | _____  ____ _      / ___|  ___ _ ____   _____ _ __ 
+   |  \| |/ _ \ \/ / _' |     \___ \ / _ \ '__\ \ / / _ \ '__|
+   | |\  |  __/>  < (_| |      ___) |  __/ |   \ V /  __/ |   
+   |_| \_|\___/_/\_\__,_|     |____/ \___|_|    \_/ \___|_|   
+                                                               v3.0 Ultimate`)
+	fmt.Println("   ════════════════════════════════════════════════════════════════")
+	fmt.Printf("   [INFO]  Initializing Core System...\n")
+	fmt.Printf("   [INFO]  TLS Security:     %s\n", "ENABLED 🔒")
+	fmt.Printf("   [INFO]  Blockchain Height: %d blocks\n", len(chain.Chain))
+	fmt.Printf("   [INFO]  Listening Port:    %s\n", nexa.PORT_SERVER)
+	fmt.Println("   ════════════════════════════════════════════════════════════════")
+	fmt.Println("   ✅  SYSTEM READY FOR CONNECTIONS")
 
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			log.Printf("Accept Error: %v", err)
+			log.Printf("   [TX-FAIL] Accept Error: %v", err)
 			continue
 		}
 		go handleConnection(conn)

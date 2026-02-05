@@ -133,8 +133,20 @@ func main() {
 	http.HandleFunc("/clear", enableCORS(handleClear))
 
 	localIP := getLocalIP()
-	fmt.Printf("\n💬 Nexa Chat Service Running on port %s\n", ChatPort)
-	fmt.Printf("   http://%s:%s\n\n", localIP, ChatPort)
+	fmt.Println(`
+      ____ _           _      ____                  _          
+     / ___| |__   __ _| |_   / ___|  ___ _ ____   _(_) ___ ___ 
+    | |   | '_ \ / _' | __|  \___ \ / _ \ '__\ \ / / |/ __/ _ \
+    | |___| | | | (_| | |_    ___) |  __/ |   \ V /| | (_|  __/
+     \____|_| |_|\__,_|\__|  |____/ \___|_|    \_/ |_|\___\___|
+                                                  v3.0 Ultimate`)
+	fmt.Println("   ════════════════════════════════════════════════════════════════")
+	fmt.Printf("   [INFO]  Initializing Chat System...\n")
+	fmt.Printf("   [INFO]  API Endpoint:      http://%s:%s\n", localIP, ChatPort)
+	fmt.Printf("   [INFO]  History Limit:     %d Messages\n", 1000)
+	fmt.Printf("   [INFO]  CORS Policy:       %s\n", "ENABLED (Global)")
+	fmt.Println("   ════════════════════════════════════════════════════════════════")
+	fmt.Println("   ✅  CHAT SERVER READY")
 
 	if err := http.ListenAndServe(":"+ChatPort, nil); err != nil {
 		log.Fatal(err)

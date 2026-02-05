@@ -132,19 +132,23 @@ func main() {
 	})
 
 	localIP := getLocalIP()
-	fmt.Printf("\n%s\n", "════════════════════════════════════════════")
-	fmt.Printf("🌐  Nexa Central Gateway v2.0\n")
-	fmt.Printf("%s\n", "════════════════════════════════════════════")
-	fmt.Printf("📍 Listen Address: 0.0.0.0:%s\n", GatewayPort)
-	fmt.Printf("🔗 Local Network:  http://%s:%s\n", localIP, GatewayPort)
-	fmt.Printf("📱 Mobile Access:  http://%s:%s\n", localIP, GatewayPort)
-	fmt.Printf("\n  🎯 Routes:\n")
-	fmt.Printf("     /           - Gateway Dashboard\n")
-	fmt.Printf("     /admin      - Admin Panel\n")
-	fmt.Printf("     /storage    - File Manager\n")
-	fmt.Printf("     /api/status - System Status\n")
-	fmt.Printf("     /api/chat/* - Chat System\n")
-	fmt.Printf("%s\n\n", "════════════════════════════════════════════")
+	fmt.Println(`
+       _____       _                                  
+      / ____|     | |                                 
+     | |  __  __ _| |_ _____      ____ _ _   _        
+     | | |_ |/ _' | __/ _ \ \ /\ / / _' | | | |       
+     | |__| | (_| | ||  __/\ V  V / (_| | |_| |       
+      \_____|\__,_|\__\___| \_/\_/ \__,_|\__, |       
+                                          __/ |       
+                                         |___/ v3.0 Ultimate`)
+	fmt.Println("   ════════════════════════════════════════════════════════════════")
+	fmt.Printf("   [INFO]  Initializing Gateway Matrix...\n")
+	fmt.Printf("   [INFO]  Public Address:    http://%s:%s\n", localIP, GatewayPort)
+	fmt.Printf("   [INFO]  Route: /admin  ->  %s\n", AdminTarget)
+	fmt.Printf("   [INFO]  Route: /files  ->  %s\n", WebTarget)
+	fmt.Printf("   [INFO]  Firewall:          %s\n", "BYPASSED (Custom Rules)")
+	fmt.Println("   ════════════════════════════════════════════════════════════════")
+	fmt.Println("   ✅  GATEWAY ONLINE")
 
 	if err := http.ListenAndServe(":"+GatewayPort, r); err != nil {
 		log.Fatalf("Server error: %v", err)

@@ -56,8 +56,6 @@ func (r *DNSRegistry) Save() error {
 
 func main() {
 	audit.Init("dns_audit.log")
-	fmt.Printf("🌐 Nexa DNS Authority starting on :%s (TLS)\n", nexa.PORT_DNS)
-
 	registry = NewDNSRegistry("dns_records.json")
 
 	certFile, keyFile := utils.FindCertFiles()
@@ -73,7 +71,21 @@ func main() {
 	}
 	defer ln.Close()
 
-	fmt.Println("   Ready to resolve .nexa domains")
+	// Professional Startup Banner
+	fmt.Println(`
+     ____  _   _ ____         _____           _               
+    |  _ \| \ | / ___|       / _ \ \     _   | |              
+    | | | |  \| \___ \      | | | | \   / \  | |_  ___ _  __  
+    | |_| | |\  |___) |     | |_| |\ \_/ \ \_| | |/ / _ \ '__|
+    |____/|_| \_|____/       \___/  \__/ \__/|_|\_\___/_|     
+                                                 v3.0 Ultimate`)
+	fmt.Println("   ════════════════════════════════════════════════════════════════")
+	fmt.Printf("   [INFO]  Initializing DNS Authority...\n")
+	fmt.Printf("   [INFO]  Listening Port:    %s (TLS)\n", nexa.PORT_DNS)
+	fmt.Printf("   [INFO]  Records DB:        %s\n", "dns_records.json")
+	fmt.Printf("   [INFO]  Audit Logging:     %s\n", "ENABLED")
+	fmt.Println("   ════════════════════════════════════════════════════════════════")
+	fmt.Println("   ✅  DNS SERVER READY")
 
 	for {
 		conn, err := ln.Accept()

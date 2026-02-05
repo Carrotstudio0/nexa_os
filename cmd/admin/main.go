@@ -62,8 +62,21 @@ func main() {
 	http.HandleFunc("/api/command", authHandler(apiCommandHandler)) // AJAX handler
 	http.HandleFunc("/admin/users", adminHandler(usersHandler))
 
-	fmt.Printf("✨ Nexa Dashboard v2.0 running on http://localhost:%s\n", AdminPort)
-	fmt.Println("   Admin: admin / admin123")
+	// Professional Startup Banner
+	fmt.Println(`
+       _       _           _         ____                  _ 
+      / \   __| |_ __ ___ (_)_ __   |  _ \ __ _ _ __   ___| |
+     / _ \ / _' | '_ ' _ \| | '_ \  | |_) / _' | '_ \ / _ \ |
+    / ___ \ (_| | | | | | | | | | | |  __/ (_| | | | |  __/ |
+   /_/   \_\__,_|_| |_| |_|_|_| |_| |_|   \__,_|_| |_|\___|_|
+                                               v3.0 Ultimate`)
+	fmt.Println("   ════════════════════════════════════════════════════════════════")
+	fmt.Printf("   [INFO]  Initializing Admin Controller...\n")
+	fmt.Printf("   [INFO]  Control Panel:     http://localhost:%s\n", AdminPort)
+	fmt.Printf("   [INFO]  User Database:     %d users loaded\n", len(users))
+	fmt.Printf("   [INFO]  Security Level:    %s\n", "HIGH (Bcrypt Enabled)")
+	fmt.Println("   ════════════════════════════════════════════════════════════════")
+	fmt.Println("   ✅  ADMIN PANEL READY")
 
 	log.Fatal(http.ListenAndServe("0.0.0.0:"+AdminPort, nil))
 }

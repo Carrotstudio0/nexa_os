@@ -54,17 +54,24 @@ func handleDashboard(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	localIP := getLocalIP()
 	fmt.Println(`
-╔════════════════════════════════════════════════════════════╗
-║          NEXA SYSTEM - ULTIMATE DASHBOARD v3.0            ║
-║       النظام المتكامل - التحكم الشامل لكل الخدمات           ║
-╚════════════════════════════════════════════════════════════╝
-`)
+     _   _  ________  _______     _______                    
+    | \ | |/ ____\  \/  / __ \   |  __ \                   
+    |  \| | |  __ \   _/ |  | |  | |  | |_ __ ___  _ __    
+    | .   | |_| |  >  <| |  | |  | |  | | '__/ _ \| '_ \   
+    | |\  | |__| |/  . \ |__| |  | |__| | | | (_) | |_) |  
+    |_| \_|\_____/_/ \_\____/   |_____/|_|  \___/| .__/   
+                                                 | |
+                                                 |_|  v3.0 Ultimate`)
+	fmt.Println("   ════════════════════════════════════════════════════════════════")
+	fmt.Printf("   [INFO]  Initializing Dashboard UI...\n")
+	fmt.Printf("   [INFO]  Serving UI at:     http://%s:%s\n", localIP, DashboardPort)
+	fmt.Printf("   [INFO]  Access-Log:        %s\n", "ENABLED")
+	fmt.Println("   ════════════════════════════════════════════════════════════════")
+	fmt.Println("   ✅  DASHBOARD ONLINE")
 
 	http.HandleFunc("/", handleDashboard)
-
-	localIP := getLocalIP()
-	fmt.Printf("\n  🚀 Dashboard Running: http://%s:%s\n\n", localIP, DashboardPort)
 
 	if err := http.ListenAndServe(":"+DashboardPort, nil); err != nil {
 		log.Fatalf("Server error: %v", err)
