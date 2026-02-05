@@ -7,15 +7,21 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strings"
 	"sync/atomic"
 	"time"
 
 	"github.com/MultiX0/nexa/pkg/config"
 	"github.com/MultiX0/nexa/pkg/governance"
 	"github.com/MultiX0/nexa/pkg/network"
+	"github.com/MultiX0/nexa/pkg/services/dns"
 	"github.com/MultiX0/nexa/pkg/utils"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+)
+
+var (
+	dynamicProxies = make(map[string]*httputil.ReverseProxy)
 )
 
 const (
@@ -152,9 +158,51 @@ func Start(nm *network.NetworkManager, gm *governance.GovernanceManager) {
 	chatProxy := createProxies(config.ChatTarget, "Chat")
 	dashboardProxy := createProxies(config.DashboardTarget, "Dashboard")
 
+	// Smart Host-based Routing (Support for .n and .nexa domains)
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			host := strings.ToLower(strings.Split(r.Host, ":")[0])
+			if strings.HasSuffix(host, ".n") || strings.HasSuffix(host, ".nexa") {
+				switch {
+				case host == "share.n" || host == "share.nexa" || host == "storage.n":
+					webProxy.ServeHTTP(w, r)
+					return
+				case host == "admin.n" || host == "admin.nexa":
+					adminProxy.ServeHTTP(w, r)
+					return
+				case host == "chat.n" || host == "chat.nexa":
+					chatProxy.ServeHTTP(w, r)
+					return
+				case host == "dash.n" || host == "dash.nexa" || host == "dashboard.n":
+					dashboardProxy.ServeHTTP(w, r)
+					return
+				default:
+					// Dynamic DNS-based routing
+					if rec, exists := dns.Resolve(host); exists {
+						target := fmt.Sprintf("http://%s:%d", rec.IP, rec.Port)
+						proxy, ok := dynamicProxies[target]
+						if !ok {
+							u, _ := url.Parse(target)
+							proxy = httputil.NewSingleHostReverseProxy(u)
+							proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
+								utils.LogError("Gateway", fmt.Sprintf("Dynamic Proxy error to %s", host), err)
+								http.Error(w, "Service Unavailable (Internal Node)", http.StatusServiceUnavailable)
+							}
+							dynamicProxies[target] = proxy
+						}
+						proxy.ServeHTTP(w, r)
+						return
+					}
+				}
+			}
+			next.ServeHTTP(w, r)
+		})
+	})
+
 	// API Routes
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/status", handleStatus)
+		r.Post("/register-site", handleRegisterSite)
 
 		// Network Expansion Routes
 		r.Route("/network", func(r chi.Router) {
@@ -349,6 +397,28 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 	json.NewEncoder(w).Encode(response)
+}
+
+func handleRegisterSite(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Name    string `json:"name"`
+		IP      string `json:"ip"`
+		Port    int    `json:"port"`
+		Service string `json:"service"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	if !strings.HasSuffix(req.Name, ".n") && !strings.HasSuffix(req.Name, ".nexa") {
+		req.Name += ".n"
+	}
+	if err := dns.Register(req.Name, req.IP, req.Port, req.Service); err != nil {
+		http.Error(w, "Failed to register site: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]string{"status": "registered", "domain": req.Name})
 }
 
 func handleGatewayHome(w http.ResponseWriter, r *http.Request) {
@@ -653,6 +723,74 @@ const gatewayHTML = `
                     </a>
                     {{end}}
                 </div>
+            </div>
+
+            <div class="services-section" style="margin-top: 40px;">
+                <h2>🌐 النطاقات الذكية (.n)</h2>
+                <div class="metrics-grid">
+                    <div class="metric-card" style="padding: 15px;">
+                        <div class="metric-label">المشاركة</div>
+                        <div class="metric-value" style="font-size: 1.1rem; color: var(--accent);">share.n</div>
+                    </div>
+                    <div class="metric-card" style="padding: 15px;">
+                        <div class="metric-label">الإدارة</div>
+                        <div class="metric-value" style="font-size: 1.1rem; color: var(--accent);">admin.n</div>
+                    </div>
+                    <div class="metric-card" style="padding: 15px;">
+                        <div class="metric-label">اللوحة</div>
+                        <div class="metric-value" style="font-size: 1.1rem; color: var(--accent);">dash.n</div>
+                    </div>
+                    <div class="metric-card" style="padding: 15px;">
+                        <div class="metric-label">الدردشة</div>
+                        <div class="metric-value" style="font-size: 1.1rem; color: var(--accent);">chat.n</div>
+                    </div>
+                </div>
+                <p style="color: var(--text-muted); font-size: 0.85rem; text-align: center; margin-top: -10px;">
+                    * تعمل هذه النطاقات تلقائياً داخل نظام Nexa (استخدم المنفذ 8000 في المتصفح).
+                </p>
+                <div style="text-align: center; margin-top: 20px;">
+                    <button onclick="document.getElementById('regModal').style.display='flex'" style="background: var(--glass); border: 1px solid var(--primary); color: var(--text); padding: 10px 20px; border-radius: 12px; cursor: pointer; transition: 0.3s; font-family: 'Cairo';">
+                        ➕ تسجيل موقع .n جديد
+                    </button>
+                </div>
+            </div>
+
+            <!-- Registration Modal -->
+            <div id="regModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); backdrop-filter:blur(10px); z-index:1000; align-items:center; justify-content:center;">
+                <div class="glass-panel" style="max-width:400px; width:90%; padding:30px;">
+                    <h3 style="margin-bottom:20px; text-align:center;">تسجيل نطاق ذكي جديد</h3>
+                    <input type="text" id="siteName" placeholder="اسم الموقع (مثلاً mysite.n)" style="width:100%; padding:12px; margin-bottom:15px; background:rgba(0,0,0,0.3); border:1px solid var(--border); border-radius:10px; color:white; font-family:'Cairo';">
+                    <input type="number" id="sitePort" placeholder="المنفذ (Port) (مثلاً 9000)" style="width:100%; padding:12px; margin-bottom:20px; background:rgba(0,0,0,0.3); border:1px solid var(--border); border-radius:10px; color:white;">
+                    <div style="display:flex; gap:10px;">
+                        <button onclick="registerSite()" style="flex:1; background:linear-gradient(to right, var(--primary), var(--secondary)); border:none; padding:12px; border-radius:10px; color:white; font-weight:bold; cursor:pointer;">تسجيل</button>
+                        <button onclick="document.getElementById('regModal').style.display='none'" style="flex:1; background:var(--glass); border:1px solid var(--border); padding:12px; border-radius:10px; color:white; cursor:pointer;">إلغاء</button>
+                    </div>
+                </div>
+            </div>
+
+            <script>
+                async function registerSite() {
+                    const name = document.getElementById('siteName').value;
+                    const port = parseInt(document.getElementById('sitePort').value);
+                    const ip = '{{.LocalIP}}';
+                    
+                    if(!name || !port) { alert('يرجى ملء جميع الحقول'); return; }
+                    
+                    try {
+                        const resp = await fetch('/api/register-site', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ name, ip, port, service: 'custom' })
+                        });
+                        if(resp.ok) {
+                            alert('تم تسجيل ' + name + ' بنجاح! سيتم التفعيل فوراً.');
+                            location.reload();
+                        } else {
+                            alert('فشل في التسجيل');
+                        }
+                    } catch(e) { console.error(e); }
+                }
+            </script>
             </div>
 
             <div class="footer">

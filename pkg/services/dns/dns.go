@@ -46,10 +46,28 @@ func NewDNSRegistry(filename string) *DNSRegistry {
 		if err == nil {
 			json.Unmarshal(data, &r.Records)
 		}
-	} else {
-		r.Records["test.nexa"] = &nexa.DNSRecord{
-			Name: "test.nexa", IP: "127.0.0.1", Port: 1413, Service: "web", CreatedAt: time.Now().String(),
+	}
+
+	// Ensure Default Shortcuts are always present
+	now := time.Now().String()
+	localIP := utils.GetLocalIP()
+	defaults := map[string]*nexa.DNSRecord{
+		"test.nexa": {Name: "test.nexa", IP: localIP, Port: 1413, Service: "web", CreatedAt: now},
+		"share.n":   {Name: "share.n", IP: localIP, Port: 8081, Service: "storage", CreatedAt: now},
+		"admin.n":   {Name: "admin.n", IP: localIP, Port: 8080, Service: "admin", CreatedAt: now},
+		"dash.n":    {Name: "dash.n", IP: localIP, Port: 7000, Service: "dashboard", CreatedAt: now},
+		"chat.n":    {Name: "chat.n", IP: localIP, Port: 8082, Service: "chat", CreatedAt: now},
+	}
+
+	changed := false
+	for name, rec := range defaults {
+		if _, exists := r.Records[name]; !exists {
+			r.Records[name] = rec
+			changed = true
 		}
+	}
+
+	if changed || len(r.Records) == 0 {
 		r.Save()
 	}
 	return r
@@ -108,6 +126,30 @@ func Start(nm *network.NetworkManager, gm *governance.GovernanceManager) {
 		}
 		go handleDNS(conn)
 	}
+}
+
+// Resolve returns the IP and Port for a given name if it exists
+func Resolve(name string) (*nexa.DNSRecord, bool) {
+	if registry == nil {
+		return nil, false
+	}
+	registry.mu.RLock()
+	defer registry.mu.RUnlock()
+	rec, exists := registry.Records[name]
+	return rec, exists
+}
+
+// Register adds or updates a record
+func Register(name, ip string, port int, service string) error {
+	if registry == nil {
+		return fmt.Errorf("registry not initialized")
+	}
+	registry.mu.Lock()
+	defer registry.mu.Unlock()
+	registry.Records[name] = &nexa.DNSRecord{
+		Name: name, IP: ip, Port: port, Service: service, CreatedAt: time.Now().String(),
+	}
+	return registry.Save()
 }
 
 func handleDNS(conn net.Conn) {
