@@ -67,12 +67,14 @@ func GetAllNetworkInterfaces() []NetworkInterface {
 
 // EnableHotspot enables Wi-Fi hotspot on the system
 func EnableHotspot(ssid, password string) error {
-	if runtime.GOOS == "windows" {
+	switch runtime.GOOS {
+	case "windows":
 		return enableWindowsHotspot(ssid, password)
-	} else if runtime.GOOS == "linux" {
+	case "linux":
 		return enableLinuxHotspot(ssid, password)
+	default:
+		return fmt.Errorf("unsupported OS: %s", runtime.GOOS)
 	}
-	return fmt.Errorf("unsupported OS: %s", runtime.GOOS)
 }
 
 // enableWindowsHotspot uses netsh to enable hotspot on Windows
@@ -93,7 +95,7 @@ func enableWindowsHotspot(ssid, password string) error {
 }
 
 // enableLinuxHotspot uses hostapd for Linux hotspot
-func enableLinuxHotspot(ssid, password string) error {
+func enableLinuxHotspot(_, _ string) error {
 	// This would require hostapd and dnsmasq to be installed
 	cmd := exec.Command("hostapd", "-D", "nl80211", "-i", "wlan0", "-c", "/etc/hostapd/hostapd.conf", "-B")
 	if err := cmd.Run(); err != nil {

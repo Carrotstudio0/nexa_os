@@ -12,6 +12,7 @@ import (
 
 	"github.com/MultiX0/nexa/pkg/auth"
 	"github.com/MultiX0/nexa/pkg/config"
+	"github.com/MultiX0/nexa/pkg/governance"
 	"github.com/MultiX0/nexa/pkg/ledger"
 	"github.com/MultiX0/nexa/pkg/network"
 	"github.com/MultiX0/nexa/pkg/nexa"
@@ -22,10 +23,13 @@ var (
 	chain          *ledger.Blockchain
 	authManager    *auth.AuthManager
 	networkManager *network.NetworkManager
+	govManager     *governance.GovernanceManager
 )
 
-func Start() {
+func Start(nm *network.NetworkManager, gm *governance.GovernanceManager) {
 	var err error
+	networkManager = nm
+	govManager = gm
 
 	// Initialize Blockchain Ledger
 	chain, err = ledger.NewBlockchain("ledger.json")
@@ -40,34 +44,21 @@ func Start() {
 		utils.LogFatal("Server", "Failed to init auth: "+err.Error())
 	}
 
-	// Initialize Network Manager
-	tlsConfig := &tls.Config{}
-	connConfig := network.ConnectionConfig{
-		ConnectionType:    network.ConnectionWiFi,
-		Timeout:           10 * time.Second,
-		MaxRetries:        3,
-		HeartbeatInterval: 30 * time.Second,
-		ReconnectWaitTime: 5 * time.Second,
-		TLSConfig:         tlsConfig,
-	}
-	networkManager = network.NewNetworkManager(connConfig)
+	// Metrics reporter
+	go func() {
+		ticker := time.NewTicker(2 * time.Second)
+		for range ticker.C {
+			if networkManager != nil {
+				networkManager.UpdateServiceMetrics("core", map[string]interface{}{
+					"blocks":         len(chain.Chain),
+					"ledger_size":    len(chain.Data),
+					"last_heartbeat": time.Now().Format("15:04:05"),
+				})
+			}
+		}
+	}()
 
-	// Register Primary Base
 	localIP := utils.GetLocalIP()
-	serverPort := 1413
-	_, err = networkManager.RegisterPrimaryBase(
-		"primary-base-001",
-		"Main Server",
-		utils.GetMACAddress(),
-		localIP,
-		serverPort,
-	)
-	if err != nil {
-		utils.LogWarning("Server", "Failed to register as primary base: "+err.Error())
-	}
-
-	// Start network monitoring
-	networkManager.StartMonitoring()
 
 	// TLS Configuration
 	certFile, keyFile := utils.FindCertFiles()
@@ -184,6 +175,12 @@ func processRequest(req nexa.Request) nexa.Response {
 		}
 		valid, role := authManager.Verify(parts[0], parts[1])
 		if !valid {
+			if govManager != nil {
+				govManager.ReportEvent("Security", governance.LevelWarning,
+					"Failed Authentication Attempt",
+					fmt.Sprintf("User: %s IP: Node-Remote", parts[0]),
+					"Log and Monitor")
+			}
 			return nexa.Response{Status: nexa.STATUS_UNAUTHORIZED, Message: "Invalid Credentials"}
 		}
 		return nexa.Response{Status: nexa.STATUS_OK, Message: "Authenticated", Body: role}

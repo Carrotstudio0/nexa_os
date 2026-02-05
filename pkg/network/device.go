@@ -8,11 +8,11 @@ import (
 type ConnectionType string
 
 const (
-	ConnectionWiFi      ConnectionType = "wifi"
-	ConnectionBluetooth ConnectionType = "bluetooth"
+	ConnectionWiFi       ConnectionType = "wifi"
+	ConnectionBluetooth  ConnectionType = "bluetooth"
 	ConnectionWiFiDirect ConnectionType = "wifi_direct"
-	ConnectionMesh      ConnectionType = "mesh"
-	ConnectionHotspot   ConnectionType = "hotspot"
+	ConnectionMesh       ConnectionType = "mesh"
+	ConnectionHotspot    ConnectionType = "hotspot"
 )
 
 // DeviceRole represents the role of a device in the network
@@ -26,68 +26,79 @@ const (
 
 // Device represents a networked device
 type Device struct {
-	ID                string          `json:"id"`
-	Name              string          `json:"name"`
-	Role              DeviceRole      `json:"role"`
-	MAC               string          `json:"mac"`
-	IPAddress         string          `json:"ip_address"`
-	Port              int             `json:"port"`
-	ConnectionType    ConnectionType  `json:"connection_type"`
-	SignalStrength    int             `json:"signal_strength"` // -1 to 100
-	IsOnline          bool            `json:"is_online"`
-	LastSeen          time.Time       `json:"last_seen"`
-	RegisteredAt      time.Time       `json:"registered_at"`
-	Metadata          map[string]interface{} `json:"metadata"`
+	ID             string                 `json:"id"`
+	Name           string                 `json:"name"`
+	Role           DeviceRole             `json:"role"`
+	MAC            string                 `json:"mac"`
+	IPAddress      string                 `json:"ip_address"`
+	Port           int                    `json:"port"`
+	ConnectionType ConnectionType         `json:"connection_type"`
+	SignalStrength int                    `json:"signal_strength"` // -1 to 100
+	IsOnline       bool                   `json:"is_online"`
+	LastSeen       time.Time              `json:"last_seen"`
+	RegisteredAt   time.Time              `json:"registered_at"`
+	Metadata       map[string]interface{} `json:"metadata"`
+	Metrics        DeviceMetrics          `json:"metrics"`
+}
+
+// DeviceMetrics represents performance metrics for a device
+type DeviceMetrics struct {
+	LatencyMS      int64                  `json:"latency_ms"`
+	RequestsPerSec float64                `json:"requests_per_sec"`
+	ErrorRate      float64                `json:"error_rate"`
+	LastActivity   int64                  `json:"last_activity"`
+	Custom         map[string]interface{} `json:"custom,omitempty"`
 }
 
 // DeviceConnection represents a connection between two devices
 type DeviceConnection struct {
-	ID                string         `json:"id"`
-	SourceDeviceID    string         `json:"source_device_id"`
-	TargetDeviceID    string         `json:"target_device_id"`
-	ConnectionType    ConnectionType `json:"connection_type"`
-	IsActive          bool           `json:"is_active"`
-	LatencyMS         int            `json:"latency_ms"`
-	Bandwidth         int64          `json:"bandwidth"` // in bytes
-	ErrorRate         float32        `json:"error_rate"` // 0.0 to 1.0
-	EstablishedAt     time.Time      `json:"established_at"`
-	LastHeartbeat     time.Time      `json:"last_heartbeat"`
+	ID             string         `json:"id"`
+	SourceDeviceID string         `json:"source_device_id"`
+	TargetDeviceID string         `json:"target_device_id"`
+	ConnectionType ConnectionType `json:"connection_type"`
+	IsActive       bool           `json:"is_active"`
+	LatencyMS      int            `json:"latency_ms"`
+	Bandwidth      int64          `json:"bandwidth"`  // in bytes
+	ErrorRate      float32        `json:"error_rate"` // 0.0 to 1.0
+	EstablishedAt  time.Time      `json:"established_at"`
+	LastHeartbeat  time.Time      `json:"last_heartbeat"`
 }
 
 // NetworkTopology represents the current network structure
 type NetworkTopology struct {
-	PrimaryBase *Device            `json:"primary_base"`
-	Devices     map[string]*Device `json:"devices"`
-	Connections map[string]*DeviceConnection `json:"connections"`
-	UpdatedAt   time.Time          `json:"updated_at"`
+	PrimaryBase    *Device                           `json:"primary_base"`
+	Devices        map[string]*Device                `json:"devices"`
+	Connections    map[string]*DeviceConnection      `json:"connections"`
+	ServiceMetrics map[string]map[string]interface{} `json:"service_metrics"`
+	UpdatedAt      time.Time                         `json:"updated_at"`
 }
 
 // NewDevice creates a new device instance
 func NewDevice(id, name string, role DeviceRole, mac, ip string, port int) *Device {
 	return &Device{
-		ID:            id,
-		Name:          name,
-		Role:          role,
-		MAC:           mac,
-		IPAddress:     ip,
-		Port:          port,
+		ID:             id,
+		Name:           name,
+		Role:           role,
+		MAC:            mac,
+		IPAddress:      ip,
+		Port:           port,
 		SignalStrength: -1,
-		IsOnline:      false,
-		RegisteredAt:  time.Now(),
-		LastSeen:      time.Now(),
-		Metadata:      make(map[string]interface{}),
+		IsOnline:       false,
+		RegisteredAt:   time.Now(),
+		LastSeen:       time.Now(),
+		Metadata:       make(map[string]interface{}),
 	}
 }
 
 // NewDeviceConnection creates a new connection between devices
 func NewDeviceConnection(sourceID, targetID string, connType ConnectionType) *DeviceConnection {
 	return &DeviceConnection{
-		SourceDeviceID:  sourceID,
-		TargetDeviceID:  targetID,
-		ConnectionType:  connType,
-		IsActive:        false,
-		EstablishedAt:   time.Now(),
-		LastHeartbeat:   time.Now(),
+		SourceDeviceID: sourceID,
+		TargetDeviceID: targetID,
+		ConnectionType: connType,
+		IsActive:       false,
+		EstablishedAt:  time.Now(),
+		LastHeartbeat:  time.Now(),
 	}
 }
 
@@ -111,9 +122,10 @@ func (d *Device) UpdateSignalStrength(strength int) {
 // NewNetworkTopology creates a new network topology
 func NewNetworkTopology() *NetworkTopology {
 	return &NetworkTopology{
-		Devices:     make(map[string]*Device),
-		Connections: make(map[string]*DeviceConnection),
-		UpdatedAt:   time.Now(),
+		Devices:        make(map[string]*Device),
+		Connections:    make(map[string]*DeviceConnection),
+		ServiceMetrics: make(map[string]map[string]interface{}),
+		UpdatedAt:      time.Now(),
 	}
 }
 

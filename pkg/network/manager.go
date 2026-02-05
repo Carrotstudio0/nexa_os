@@ -213,10 +213,11 @@ func (nm *NetworkManager) GetTopology() *NetworkTopology {
 
 	// Create a copy to avoid external modifications
 	topoCopy := &NetworkTopology{
-		PrimaryBase: nm.topology.PrimaryBase,
-		Devices:     make(map[string]*Device),
-		Connections: make(map[string]*DeviceConnection),
-		UpdatedAt:   nm.topology.UpdatedAt,
+		PrimaryBase:    nm.topology.PrimaryBase,
+		Devices:        make(map[string]*Device),
+		Connections:    make(map[string]*DeviceConnection),
+		ServiceMetrics: make(map[string]map[string]interface{}),
+		UpdatedAt:      nm.topology.UpdatedAt,
 	}
 
 	for id, device := range nm.topology.Devices {
@@ -225,6 +226,10 @@ func (nm *NetworkManager) GetTopology() *NetworkTopology {
 
 	for id, conn := range nm.topology.Connections {
 		topoCopy.Connections[id] = conn
+	}
+
+	for name, metrics := range nm.topology.ServiceMetrics {
+		topoCopy.ServiceMetrics[name] = metrics
 	}
 
 	return topoCopy
@@ -300,7 +305,7 @@ func (nm *NetworkManager) StopMonitoring() {
 
 // monitorLoop periodically checks device health
 func (nm *NetworkManager) monitorLoop() {
-	ticker := time.NewTicker(30 * time.Second)
+	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 
 	for {
@@ -326,8 +331,10 @@ func (nm *NetworkManager) checkDeviceHealth() {
 	timeout := 2 * time.Minute
 
 	for deviceID, handler := range handlers {
-		lastSeen := handler.GetLastMessageTime()
+		// Update Latency
+		handler.MeasureLatency()
 
+		lastSeen := handler.GetLastMessageTime()
 		if now.Sub(lastSeen) > timeout {
 			// Device is considered offline
 			device := nm.GetDevice(deviceID)
@@ -342,6 +349,54 @@ func (nm *NetworkManager) checkDeviceHealth() {
 func (nm *NetworkManager) generateConnectionID(sourceID, targetID string) string {
 	hash := md5.Sum([]byte(sourceID + "-" + targetID + "-" + time.Now().String()))
 	return hex.EncodeToString(hash[:])
+}
+
+// UpdateServiceMetrics updates metrics for a specific service
+func (nm *NetworkManager) UpdateServiceMetrics(serviceName string, metrics map[string]interface{}) {
+	nm.mu.Lock()
+	defer nm.mu.Unlock()
+
+	if nm.topology.ServiceMetrics == nil {
+		nm.topology.ServiceMetrics = make(map[string]map[string]interface{})
+	}
+	nm.topology.ServiceMetrics[serviceName] = metrics
+	nm.topology.UpdatedAt = time.Now()
+}
+
+// UpdateDeviceMetrics updates metrics for a specific device
+func (nm *NetworkManager) UpdateDeviceMetrics(deviceID string, metrics DeviceMetrics) error {
+	nm.mu.Lock()
+	defer nm.mu.Unlock()
+
+	device, exists := nm.topology.Devices[deviceID]
+	if !exists {
+		// check primary base
+		if nm.topology.PrimaryBase != nil && nm.topology.PrimaryBase.ID == deviceID {
+			device = nm.topology.PrimaryBase
+		} else {
+			return fmt.Errorf("device %s not found", deviceID)
+		}
+	}
+
+	// Update only non-zero fields or merge
+	if metrics.LatencyMS > 0 {
+		device.Metrics.LatencyMS = metrics.LatencyMS
+	}
+	if metrics.RequestsPerSec > 0 {
+		device.Metrics.RequestsPerSec = metrics.RequestsPerSec
+	}
+	if metrics.ErrorRate >= 0 {
+		device.Metrics.ErrorRate = metrics.ErrorRate
+	}
+	if metrics.LastActivity > 0 {
+		device.Metrics.LastActivity = metrics.LastActivity
+	}
+	if metrics.Custom != nil {
+		device.Metrics.Custom = metrics.Custom
+	}
+
+	nm.topology.UpdatedAt = time.Now()
+	return nil
 }
 
 // GetNetworkStats returns network statistics

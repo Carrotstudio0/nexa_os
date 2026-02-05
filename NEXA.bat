@@ -47,7 +47,7 @@ exit /b 1
 
 :BUILD_AND_RUN
 cls
-call BUILD.bat
+call scripts\build.bat
 exit /b
 
 :RUN_ONLY
@@ -58,5 +58,5 @@ exit /b
 
 :TROUBLESHOOT
 cls
-call TROUBLESHOOT.bat
+call scripts\troubleshoot.bat
 exit /b

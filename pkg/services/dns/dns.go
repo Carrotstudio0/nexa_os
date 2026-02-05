@@ -10,10 +10,13 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/MultiX0/nexa/pkg/audit"
 	"github.com/MultiX0/nexa/pkg/config"
+	"github.com/MultiX0/nexa/pkg/governance"
+	"github.com/MultiX0/nexa/pkg/network"
 	"github.com/MultiX0/nexa/pkg/nexa"
 	"github.com/MultiX0/nexa/pkg/utils"
 )
@@ -25,7 +28,12 @@ type DNSRegistry struct {
 	Filename string                     `json:"-"`
 }
 
-var registry *DNSRegistry
+var (
+	registry   *DNSRegistry
+	netManager *network.NetworkManager
+	govManager *governance.GovernanceManager
+	queryCount int64
+)
 
 func NewDNSRegistry(filename string) *DNSRegistry {
 	r := &DNSRegistry{
@@ -55,9 +63,26 @@ func (r *DNSRegistry) Save() error {
 	return os.WriteFile(r.Filename, data, 0644)
 }
 
-func Start() {
+func Start(nm *network.NetworkManager, gm *governance.GovernanceManager) {
+	netManager = nm
+	govManager = gm
 	audit.Init("dns_audit.log")
 	registry = NewDNSRegistry("dns_records.json")
+
+	// Metrics reporter
+	go func() {
+		ticker := time.NewTicker(2 * time.Second)
+		for range ticker.C {
+			if netManager != nil {
+				qCount := atomic.SwapInt64(&queryCount, 0)
+				netManager.UpdateServiceMetrics("dns", map[string]interface{}{
+					"queries_per_sec": float64(qCount) / 2.0,
+					"active_records":  len(registry.Records),
+					"status":          "Ready",
+				})
+			}
+		}
+	}()
 
 	certFile, keyFile := utils.FindCertFiles()
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
@@ -103,6 +128,7 @@ func handleDNS(conn net.Conn) {
 		}
 
 		response := processDNSQuery(line, remoteAddr)
+		atomic.AddInt64(&queryCount, 1)
 		conn.Write([]byte(response + "\n"))
 	}
 }

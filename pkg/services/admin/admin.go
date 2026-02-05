@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"github.com/MultiX0/nexa/pkg/config"
+	"github.com/MultiX0/nexa/pkg/governance"
+	"github.com/MultiX0/nexa/pkg/network"
 	"github.com/MultiX0/nexa/pkg/utils"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -33,10 +35,12 @@ type LogEntry struct {
 }
 
 var (
-	logs     []LogEntry
-	logMutex sync.Mutex
-	users    map[string]User
-	sessions = map[string]string{}
+	logs       []LogEntry
+	logMutex   sync.Mutex
+	users      map[string]User
+	sessions   = map[string]string{}
+	netManager *network.NetworkManager
+	govManager *governance.GovernanceManager
 )
 
 type User struct {
@@ -46,8 +50,24 @@ type User struct {
 
 var usersFilePath string
 
-func Start() {
+func Start(nm *network.NetworkManager, gm *governance.GovernanceManager) {
+	netManager = nm
+	govManager = gm
 	loadUsers()
+
+	// Metrics reporter
+	go func() {
+		ticker := time.NewTicker(2 * time.Second)
+		for range ticker.C {
+			if netManager != nil {
+				netManager.UpdateServiceMetrics("admin", map[string]interface{}{
+					"log_count":      len(logs),
+					"active_session": len(sessions),
+					"user_count":     len(users),
+				})
+			}
+		}
+	}()
 
 	mux := http.NewServeMux()
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))

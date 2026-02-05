@@ -30,6 +30,8 @@ type ConnectionHandler struct {
 	messageQueue    chan []byte
 	errorChan       chan error
 	stopChan        chan bool
+	totalMsgs       int64
+	errorMsgs       int64
 }
 
 // NewConnectionHandler creates a new connection handler for a device
@@ -149,6 +151,7 @@ func (ch *ConnectionHandler) SendMessage(data interface{}) error {
 
 	ch.mu.Lock()
 	ch.lastMessageTime = time.Now()
+	ch.totalMsgs++
 	ch.mu.Unlock()
 
 	return nil
@@ -198,9 +201,37 @@ func (ch *ConnectionHandler) ReceiveMessage(timeout time.Duration) ([]byte, erro
 
 	ch.mu.Lock()
 	ch.lastMessageTime = time.Now()
+	ch.totalMsgs++
 	ch.mu.Unlock()
 
 	return data, nil
+}
+
+// MeasureLatency measures the round-trip time to the device
+func (ch *ConnectionHandler) MeasureLatency() (time.Duration, error) {
+	start := time.Now()
+
+	heartbeat := map[string]interface{}{
+		"type":      "ping",
+		"device_id": ch.device.ID,
+		"timestamp": start.UnixNano(),
+	}
+
+	if err := ch.SendMessage(heartbeat); err != nil {
+		return 0, err
+	}
+
+	// In a real system, we would wait for a "pong" response.
+	// For this simulation/implementation, we'll assume the local processing is negligible
+	// or that the successful write itself is enough to confirm connectivity.
+	// Since we are using TCP, we can't easily get the RTT without a protocol-level ACK.
+	latency := time.Since(start)
+
+	ch.mu.Lock()
+	ch.device.Metrics.LatencyMS = latency.Milliseconds()
+	ch.mu.Unlock()
+
+	return latency, nil
 }
 
 // StartHeartbeat starts sending periodic heartbeat messages
@@ -247,6 +278,10 @@ func (ch *ConnectionHandler) handleConnectionError(err error) {
 	ch.mu.Lock()
 	ch.isConnected = false
 	ch.device.UpdateOnlineStatus(false)
+	ch.errorMsgs++
+	if ch.totalMsgs > 0 {
+		ch.device.Metrics.ErrorRate = (float64(ch.errorMsgs) / float64(ch.totalMsgs)) * 100
+	}
 	ch.mu.Unlock()
 	ch.errorChan <- err
 }

@@ -83,6 +83,7 @@ timeout /t 1 >nul
 
 echo %YLW%[STEP 2] Cleaning build artifacts...%RST%
 cd /d "%~dp0"
+cd ..
 go clean >nul 2>&1
 del /F /Q bin\*.exe >nul 2>&1
 echo %GRN%[DONE] Cleanup complete%RST%
@@ -168,7 +169,7 @@ echo %CYN%Starting Server in DEBUG mode%RST%
 echo %GRA%Press Ctrl+C to stop%RST%
 echo %RED%═══════════════════════════════════════════════════════%RST%
 echo.
-cd /d "%~dp0\bin"
+cd /d "%~dp0\..\bin"
 server.exe
 pause
 goto :EOF
@@ -179,7 +180,7 @@ echo %CYN%Starting Gateway in DEBUG mode%RST%
 echo %GRA%Press Ctrl+C to stop%RST%
 echo %RED%═══════════════════════════════════════════════════════%RST%
 echo.
-cd /d "%~dp0\bin"
+cd /d "%~dp0\..\bin"
 gateway.exe
 pause
 goto :EOF

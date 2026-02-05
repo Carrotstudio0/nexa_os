@@ -1,16 +1,17 @@
 package gateway
 
 import (
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"html/template"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"sync/atomic"
 	"time"
 
 	"github.com/MultiX0/nexa/pkg/config"
+	"github.com/MultiX0/nexa/pkg/governance"
 	"github.com/MultiX0/nexa/pkg/network"
 	"github.com/MultiX0/nexa/pkg/utils"
 	"github.com/go-chi/chi/v5"
@@ -27,6 +28,7 @@ const (
 var (
 	networkMgr   *network.NetworkManager
 	expansionMgr *NetworkExpansionManager
+	govManager   *governance.GovernanceManager
 )
 
 // GatewayResponse represents the gateway status
@@ -45,33 +47,50 @@ func init() {
 	startTime = time.Now()
 }
 
-func Start() {
+func Start(nm *network.NetworkManager, gm *governance.GovernanceManager) {
+	networkMgr = nm
+	govManager = gm
 	// Initialize router
 	r := chi.NewRouter()
 
-	// Initialize Network Manager
-	certFile, keyFile := utils.FindCertFiles()
-	tlsConfig := &tls.Config{
-		ClientAuth: tls.NoClientCert,
-	}
-	if certFile != "" && keyFile != "" {
-		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
-		if err == nil {
-			tlsConfig.Certificates = []tls.Certificate{cert}
-		}
-	}
-
-	connConfig := network.ConnectionConfig{
-		ConnectionType:    network.ConnectionWiFi,
-		Timeout:           10 * time.Second,
-		MaxRetries:        3,
-		HeartbeatInterval: 30 * time.Second,
-		ReconnectWaitTime: 5 * time.Second,
-		TLSConfig:         tlsConfig,
-	}
-
-	networkMgr = network.NewNetworkManager(connConfig)
+	networkMgr = nm
 	expansionMgr = NewNetworkExpansionManager(networkMgr, 9999)
+	// Gateway connections tracking
+	// Gateway connections tracking
+	var connectionCount int64
+	var requestCount int64
+
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			atomic.AddInt64(&connectionCount, 1)
+			atomic.AddInt64(&requestCount, 1)
+			defer atomic.AddInt64(&connectionCount, -1)
+			next.ServeHTTP(w, r)
+		})
+	})
+
+	// Metrics reporter
+	go func() {
+		ticker := time.NewTicker(1 * time.Second)
+		for range ticker.C {
+			reqs := atomic.SwapInt64(&requestCount, 0)
+			conns := atomic.LoadInt64(&connectionCount)
+
+			if networkMgr != nil {
+				networkMgr.UpdateDeviceMetrics("svc-gateway", network.DeviceMetrics{
+					RequestsPerSec: float64(reqs),
+					LastActivity:   time.Now().Unix(),
+					Custom: map[string]interface{}{
+						"active_connections": conns,
+					},
+				})
+				networkMgr.UpdateServiceMetrics("gateway", map[string]interface{}{
+					"active_connections": conns,
+					"requests_per_sec":   reqs,
+				})
+			}
+		}
+	}()
 
 	// Start network expansion
 	if err := expansionMgr.Start(); err != nil {

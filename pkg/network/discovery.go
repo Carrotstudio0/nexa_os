@@ -137,7 +137,7 @@ func (dd *DeviceDiscovery) listenLoop() {
 			// Set read deadline to allow periodic shutdown check
 			dd.conn.SetReadDeadline(time.Now().Add(5 * time.Second))
 
-			n, remoteAddr, err := dd.conn.ReadFromUDP(buffer)
+			n, _, err := dd.conn.ReadFromUDP(buffer)
 			if err != nil {
 				if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 					continue
@@ -165,7 +165,7 @@ func (dd *DeviceDiscovery) listenLoop() {
 			}
 
 			// Calculate signal strength based on network conditions (simplified)
-			response.SignalStrength = dd.calculateSignalStrength(remoteAddr)
+			response.SignalStrength = dd.calculateSignalStrength()
 
 			dd.mu.Lock()
 			dd.discoveredDevices[beacon.DeviceID] = response
@@ -216,7 +216,7 @@ func (dd *DeviceDiscovery) SetOnDiscovered(callback func(*DiscoveryResponse)) {
 }
 
 // calculateSignalStrength calculates signal strength based on network conditions
-func (dd *DeviceDiscovery) calculateSignalStrength(remoteAddr *net.UDPAddr) int {
+func (dd *DeviceDiscovery) calculateSignalStrength() int {
 	// Simplified calculation: in a real implementation, this would measure
 	// actual signal strength, packet loss, etc.
 	// For now, return a default value

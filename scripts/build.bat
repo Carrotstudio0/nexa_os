@@ -27,6 +27,7 @@ echo %GRA%═══════════════════════�
 echo.
 
 cd /d "%~dp0"
+cd ..
 
 :: Cleanup
 echo %BLU%[CLEANUP]%RST% %GRA%Stopping services and clearing bin...%RST%
@@ -66,6 +67,7 @@ if exist "users.json" copy /Y "users.json" "bin\" >nul
 if exist "config.json" copy /Y "config.json" "bin\" >nul
 if not exist "bin\certs" mkdir "bin\certs"
 if exist "certs" copy /Y "certs\*.*" "bin\certs\" >nul
+copy /Y "scripts\start-all.bat" "bin\" >nul
 
 echo   %GRN%✓ Assets deployed to \bin%RST%
 

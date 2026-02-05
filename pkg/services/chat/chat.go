@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/MultiX0/nexa/pkg/config"
+	"github.com/MultiX0/nexa/pkg/governance"
+	"github.com/MultiX0/nexa/pkg/network"
 	"github.com/MultiX0/nexa/pkg/utils"
 )
 
@@ -23,7 +25,37 @@ type Message struct {
 var (
 	messages []Message
 	mu       sync.Mutex
+
+	// Telemetry
+	msgCounter int
+	netManager *network.NetworkManager
+	govManager *governance.GovernanceManager
 )
+
+func reportMetrics() {
+	ticker := time.NewTicker(1 * time.Second)
+	for range ticker.C {
+		mu.Lock()
+		rate := msgCounter
+		msgCounter = 0
+		mu.Unlock()
+
+		if netManager != nil {
+			netManager.UpdateDeviceMetrics("svc-chat", network.DeviceMetrics{
+				RequestsPerSec: float64(rate),
+				LastActivity:   time.Now().Unix(),
+				Custom: map[string]interface{}{
+					"messages_per_sec": rate,
+					"total_messages":   len(messages),
+				},
+			})
+			netManager.UpdateServiceMetrics("chat", map[string]interface{}{
+				"messages_per_sec": rate,
+				"total_messages":   len(messages),
+			})
+		}
+	}
+}
 
 func enableCORS(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -60,16 +92,31 @@ func handleSend(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	mu.Lock()
+	defer mu.Unlock()
+
+	// Governance Check: Rate Limit
+	if govManager != nil {
+		policy := govManager.PolicyEngine.GetPolicy()
+		if msgCounter >= policy.ChatRateLimit { // Use >= to check if current count meets or exceeds limit
+			govManager.ReportEvent("Spam", governance.LevelWarning,
+				"Chat spam detected",
+				fmt.Sprintf("Messages per second exceeds policy limit (%d)", policy.ChatRateLimit),
+				"Throttling connections")
+			http.Error(w, "Rate limit exceeded", http.StatusTooManyRequests)
+			return
+		}
+	}
+
 	msg.ID = time.Now().UnixNano()
 	msg.Timestamp = time.Now().Format("15:04:05")
 	if msg.Sender == "" {
 		msg.Sender = "Anonymous"
 	}
 	messages = append(messages, msg)
+	msgCounter++
 	if len(messages) > 1000 {
 		messages = messages[1:]
 	}
-	mu.Unlock()
 
 	utils.LogInfo("Chat", fmt.Sprintf("[%s]: %s", msg.Sender, msg.Content))
 	w.WriteHeader(201)
@@ -89,7 +136,9 @@ func handleUI(w http.ResponseWriter, r *http.Request) {
 	tmpl.Execute(w, data)
 }
 
-func Start() {
+func Start(nm *network.NetworkManager, gm *governance.GovernanceManager) {
+	netManager = nm
+	govManager = gm
 	messages = append(messages, Message{
 		ID:        time.Now().UnixNano(),
 		Sender:    "System",
@@ -97,6 +146,8 @@ func Start() {
 		Timestamp: time.Now().Format("15:04:05"),
 		IsAdmin:   true,
 	})
+
+	go reportMetrics()
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handleUI)

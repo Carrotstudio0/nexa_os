@@ -16,6 +16,8 @@ import (
 	"time"
 
 	"github.com/MultiX0/nexa/pkg/config"
+	"github.com/MultiX0/nexa/pkg/governance"
+	"github.com/MultiX0/nexa/pkg/network"
 	"github.com/MultiX0/nexa/pkg/utils"
 )
 
@@ -28,7 +30,41 @@ const (
 var (
 	shareLinks = make(map[string]string)
 	shareMutex sync.RWMutex
+
+	// Telemetry
+	uploadBytes   int64
+	downloadBytes int64
+	netManager    *network.NetworkManager
+	govManager    *governance.GovernanceManager
+	metricsMutex  sync.Mutex
 )
+
+func reportMetrics() {
+	ticker := time.NewTicker(1 * time.Second)
+	for range ticker.C {
+		metricsMutex.Lock()
+		upSpeed := uploadBytes
+		downSpeed := downloadBytes
+		uploadBytes = 0
+		downloadBytes = 0
+		metricsMutex.Unlock()
+
+		if netManager != nil {
+			netManager.UpdateDeviceMetrics("svc-storage", network.DeviceMetrics{
+				RequestsPerSec: 0, // Not tracking req/s yet for storage specifically
+				LastActivity:   time.Now().Unix(),
+				Custom: map[string]interface{}{
+					"upload_speed_bps":   upSpeed,
+					"download_speed_bps": downSpeed,
+				},
+			})
+			netManager.UpdateServiceMetrics("storage", map[string]interface{}{
+				"upload_speed":   utils.FormatSize(upSpeed) + "/s",
+				"download_speed": utils.FormatSize(downSpeed) + "/s",
+			})
+		}
+	}
+}
 
 // HTML Template (New Professional UI - No backticks in JS for Go compatibility)
 const FileMangerHTML = `
@@ -498,8 +534,15 @@ type FileInfo struct {
 	IsLink bool
 }
 
-func Start() {
+func Start(nm *network.NetworkManager, gm *governance.GovernanceManager) {
+	netManager = nm
+	govManager = gm
+	go reportMetrics()
+
 	// Ensure professional storage structure
+	os.MkdirAll(StorageRoot, 0755)
+	os.MkdirAll(filepath.Join(StorageRoot, "public"), 0755)
+	os.MkdirAll(filepath.Join(StorageRoot, "locked"), 0755)
 	subDirs := []string{"incoming", "shared", "vault", "backup", "temp"}
 	for _, sub := range subDirs {
 		path := filepath.Join(StorageRoot, sub)
@@ -638,6 +681,19 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	os.MkdirAll(saveDir, 0755)
 
 	for _, header := range files {
+		// Governance Check: File Size
+		if govManager != nil {
+			policy := govManager.PolicyEngine.GetPolicy()
+			if header.Size > int64(policy.MaxUploadSizeMB)*1024*1024 {
+				govManager.ReportEvent("Security", governance.LevelAction,
+					fmt.Sprintf("Blocked large upload: %s", header.Filename),
+					fmt.Sprintf("Size %d bytes exceeds policy %d MB", header.Size, policy.MaxUploadSizeMB),
+					"Upload Rejected")
+				http.Error(w, "File exceeds system policy", http.StatusForbidden)
+				return
+			}
+		}
+
 		file, _ := header.Open()
 
 		// Safe filename with check
@@ -654,6 +710,9 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 		written, _ := io.Copy(dst, file)
 
 		utils.LogSuccess("Storage", fmt.Sprintf("Uploaded: %s (%s)", filename, utils.FormatSize(written)))
+		metricsMutex.Lock()
+		uploadBytes += written
+		metricsMutex.Unlock()
 		dst.Close()
 		file.Close()
 	}
@@ -686,7 +745,19 @@ func downloadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	path := filepath.Join(StorageRoot, file)
 	w.Header().Set("Content-Disposition", "attachment; filename="+filepath.Base(file))
-	http.ServeFile(w, r, path)
+
+	f, err := os.Open(path)
+	if err != nil {
+		http.Error(w, "File not found", 404)
+		return
+	}
+	defer f.Close()
+
+	// Track download size
+	n, _ := io.Copy(w, f)
+	metricsMutex.Lock()
+	downloadBytes += n
+	metricsMutex.Unlock()
 }
 
 func shareAPIHandler(w http.ResponseWriter, r *http.Request) {
