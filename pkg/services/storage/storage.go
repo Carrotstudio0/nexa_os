@@ -1,6 +1,8 @@
 package storage
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -10,6 +12,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/MultiX0/nexa/pkg/config"
@@ -21,302 +24,483 @@ const (
 	StorageRoot = "./storage"
 )
 
-// HTML Template for the File Manager - Professional UI
+// ShareLinkStore
+var (
+	shareLinks = make(map[string]string)
+	shareMutex sync.RWMutex
+)
+
+// HTML Template (New Professional UI - No backticks in JS for Go compatibility)
 const FileMangerHTML = `
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NEXA | Digital Storage</title>
+    <title>NEXA | Ultimate Cloud</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         :root {
             --primary: #6366f1;
             --secondary: #ec4899;
             --accent: #06b6d4;
+            --success: #10b981;
             --bg: #020617;
-            --card-bg: rgba(15, 23, 42, 0.6);
-            --glass: rgba(255, 255, 255, 0.03);
-            --border: rgba(255, 255, 255, 0.08);
+            --sidebar-bg: rgba(15, 23, 42, 0.8);
+            --content-bg: rgba(30, 41, 59, 0.4);
+            --glass: rgba(255, 255, 255, 0.05);
+            --border: rgba(255, 255, 255, 0.1);
             --text: #f8fafc;
-            --text-muted: #64748b;
+            --text-muted: #94a3b8;
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * { margin: 0; padding: 0; box-sizing: border-box; outline: none; }
         
         body { 
             font-family: 'Outfit', 'Cairo', sans-serif; 
             background: var(--bg);
             background-image: 
-                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.1) 0, transparent 40%),
-                radial-gradient(at 100% 100%, rgba(236, 72, 153, 0.1) 0, transparent 40%);
+                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(236, 72, 153, 0.15) 0, transparent 50%);
             color: var(--text);
-            min-height: 100vh;
-            padding: 40px;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
         }
         
-        .container { 
-            max-width: 1200px; 
-            margin: 0 auto; 
-            background: var(--card-bg);
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background: var(--sidebar-bg);
             backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            padding: 50px;
-            border-radius: 40px; 
-            box-shadow: 0 40px 100px -20px rgba(0,0,0,0.5);
-            border: 1px solid var(--border);
-            animation: slideIn 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 30px 20px;
+            z-index: 10;
         }
 
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateY(30px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
-        .header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 50px;
-            padding-bottom: 30px;
-            border-bottom: 1px solid var(--border);
-        }
-        
-        .header-info h1 {
-            font-size: 3rem;
+        .logo {
+            font-size: 2rem;
             font-weight: 900;
+            margin-bottom: 40px;
             background: linear-gradient(to right, var(--primary), var(--secondary));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            letter-spacing: -2px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
-        
-        .info-pill {
-            background: var(--glass);
-            border: 1px solid var(--border);
-            padding: 12px 24px;
-            border-radius: 20px;
+
+        .nav-item {
+            padding: 14px 20px;
+            margin-bottom: 8px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            color: var(--text-muted);
             display: flex;
             align-items: center;
             gap: 12px;
-            transition: all 0.3s;
+            font-weight: 600;
         }
 
-        .info-pill:hover { border-color: var(--primary); background: rgba(255,255,255,0.06); }
-        
-        .info-label { color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; }
-        .info-value { font-weight: 700; color: var(--text); }
-        
-        .upload-zone { 
-            background: linear-gradient(135deg, rgba(99, 102, 241, 0.05), rgba(236, 72, 153, 0.05));
-            padding: 60px; 
-            border: 2px dashed var(--border); 
-            border-radius: 32px; 
-            text-align: center; 
-            margin-bottom: 50px;
-            transition: all 0.4s;
-            cursor: pointer;
-        }
-        
-        .upload-zone:hover {
-            border-color: var(--secondary);
-            background: rgba(255, 255, 255, 0.04);
-            transform: scale(1.01);
+        .nav-item:hover, .nav-item.active {
+            background: rgba(99, 102, 241, 0.1);
+            color: var(--text);
+            border-right: 3px solid var(--primary);
         }
 
-        .upload-zone i { font-size: 4rem; margin-bottom: 20px; color: var(--secondary); opacity: 0.8; }
-        
-        .btn-action { 
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            color: white; border: none; padding: 16px 40px; 
-            border-radius: 16px; cursor: pointer; font-weight: 800;
-            font-size: 1.1rem; transition: all 0.3s;
-            box-shadow: 0 10px 20px -5px rgba(99, 102, 241, 0.4);
+        .nav-item i { width: 20px; }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--content-bg);
+            margin: 20px;
+            margin-right: 0; /* RTL Fix */
+            border-radius: 30px 0 0 30px;
+            border: 1px solid var(--border);
+            border-right: none;
+            overflow: hidden;
+            position: relative;
         }
-        
-        .btn-action:hover { transform: translateY(-3px); box-shadow: 0 20px 40px -10px rgba(99, 102, 241, 0.6); }
-        
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 24px;
-            margin-bottom: 40px;
+
+        /* Top Bar */
+        .top-bar {
+            padding: 24px 40px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+            background: rgba(15, 23, 42, 0.6);
         }
-        
-        .stat-box {
+
+        .search-box {
+            position: relative;
+            width: 400px;
+        }
+
+        .search-box input {
+            width: 100%;
             background: var(--glass);
-            padding: 24px;
+            border: 1px solid var(--border);
+            padding: 12px 50px 12px 20px;
+            border-radius: 12px;
+            color: white;
+            font-family: inherit;
+        }
+
+        .search-box i {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+        }
+
+        .actions {
+            display: flex;
+            gap: 15px;
+        }
+
+        .btn {
+            padding: 10px 24px;
+            border-radius: 12px;
+            border: none;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-family: inherit;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+        
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(99, 102, 241, 0.4); }
+
+        .btn-glass {
+            background: var(--glass);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-glass:hover { background: rgba(255,255,255,0.1); }
+
+        /* File Area */
+        .file-area {
+            flex: 1;
+            padding: 30px 40px;
+            overflow-y: auto;
+        }
+
+        .breadcrumbs {
+            margin-bottom: 20px;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            display: flex;
+            gap: 8px;
+        }
+
+        .breadcrumbs span { cursor: pointer; color: var(--accent); }
+        .breadcrumbs span:hover { text-decoration: underline; }
+
+        .grid-view {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 20px;
+        }
+
+        .file-card {
+            background: var(--glass);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .file-card:hover {
+            background: rgba(255,255,255,0.08);
+            transform: translateY(-5px);
+            border-color: var(--primary);
+        }
+
+        .file-icon {
+            font-size: 3.5rem;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        .file-name {
+            font-size: 0.95rem;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 5px;
+        }
+
+        .file-meta {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .context-menu {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            opacity: 0;
+            transition: 0.2s;
+        }
+
+        .file-card:hover .context-menu { opacity: 1; }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: #0f172a;
+            padding: 40px;
             border-radius: 24px;
             border: 1px solid var(--border);
+            width: 450px;
             text-align: center;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+            animation: popIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        
-        .val { font-size: 2.5rem; font-weight: 900; color: var(--text); }
-        .lbl { font-size: 0.9rem; color: var(--text-muted); margin-top: 4px; }
-        
-        table { width: 100%; border-collapse: separate; border-spacing: 0 12px; margin-top: 20px; }
-        th { padding: 20px; text-align: right; color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1.5px; }
-        td { padding: 24px; background: rgba(255, 255, 255, 0.03); border: 1px solid transparent; transition: all 0.3s; }
-        tr td:first-child { border-radius: 20px 0 0 20px; }
-        tr td:last-child { border-radius: 0 20px 20px 0; }
-        
-        tr:hover td { background: rgba(255, 255, 255, 0.06); border-color: var(--border); }
-        
-        .f-item { display: flex; align-items: center; gap: 16px; font-weight: 700; color: #fff; }
-        .f-icon { font-size: 1.75rem; }
-        
-        .actions-cell { display: flex; gap: 12px; }
-        
-        .btn-sm { 
-            padding: 10px 20px; border-radius: 12px; font-weight: 700; font-size: 0.9rem; text-decoration: none; border: 1px solid var(--border); transition: all 0.2s;
-        }
-        
-        .btn-dl { background: rgba(6, 182, 212, 0.1); color: var(--accent); }
-        .btn-dl:hover { background: var(--accent); color: white; border-color: transparent; }
-        
-        .btn-del { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
-        .btn-del:hover { background: #ef4444; color: white; border-color: transparent; }
 
-        .footer {
-            margin-top: 60px; text-align: center; padding-top: 40px; border-top: 1px solid var(--border); color: var(--text-muted);
+        @keyframes popIn {
+            from { transform: scale(0.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        #qr-code { padding: 20px; background: white; border-radius: 12px; margin: 20px auto; width: fit-content; }
+        
+        .drag-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(99, 102, 241, 0.9);
+            z-index: 50;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            opacity: 0;
+            pointer-events: none;
+            transition: 0.3s;
+        }
+        
+        .drag-active .drag-overlay { opacity: 1; pointer-events: all; }
+
+        @media (max-width: 768px) {
+            body { flex-direction: column; }
+            .sidebar { width: 100%; flex-direction: row; overflow-x: auto; padding: 10px; border-left: none; border-bottom: 1px solid var(--border); }
+            .nav-item { margin: 0 5px; flex-shrink: 0; }
+            .main-content { margin: 0; border-radius: 0; border: none; }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <div class="header-info">
-                <h1>NEXA DISK</h1>
-                <p style="color: var(--text-muted); font-size: 1.1rem;">إدارة الأرشيف الرقمي v3.1</p>
-            </div>
-            <div style="display: flex; gap: 16px;">
-                <div class="info-pill" style="text-decoration: none;">
-                    <span class="info-label">Hub</span>
-                    <span class="info-value">Command Center</span>
-                </div>
-                <div class="info-pill">
-                    <span class="info-label">IP Address</span>
-                    <span class="info-value">{{.LocalIP}}</span>
-                </div>
-                <div class="info-pill">
-                    <span class="info-label">Server Time</span>
-                    <span class="info-value">{{.Time}}</span>
-                </div>
-            </div>
-        </div>
-        
-        <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
-            <form action="/upload" method="POST" enctype="multipart/form-data" id="uploadForm">
-                <i class="fas fa-cloud-arrow-up"></i>
-                <h3>اسحب الملفات هنا أو انقر للاختيار</h3>
-                <p style="color: var(--text-muted); margin-bottom: 30px;">الحد الأقصى للرفع هو 500 ميجابايت للعملية الواحدة</p>
-                <input type="file" name="file" required id="fileInput" style="display:none">
-                <button type="submit" class="btn-action" onclick="event.stopPropagation()">بدء الرفع الآمن</button>
-            </form>
-        </div>
-        
-        {{if .Files}}
-        <div class="stats-grid">
-            <div class="stat-box">
-                <div class="val">{{.FileCount}}</div>
-                <div class="lbl">الملفات الكلية</div>
-            </div>
-            <div class="stat-box">
-                <div class="val">{{.TotalSize}}</div>
-                <div class="lbl">المساحة المستخدمة</div>
-            </div>
-            <div class="stat-box">
-                <div class="val">✓</div>
-                <div class="lbl">حالة التشفير</div>
-            </div>
-        </div>
-        
-        <table>
-            <thead>
-                <tr>
-                    <th>المستند / الملف</th>
-                    <th>الحجم</th>
-                    <th>تاريخ التعديل</th>
-                    <th>الإجراءات</th>
-                </tr>
-            </thead>
-            <tbody>
-                {{range .Files}}
-                <tr>
-                    <td>
-                        <div class="f-item">
-                            <span class="f-icon">{{.Icon}}</span>
-                            <span>{{.Name}}</span>
-                        </div>
-                    </td>
-                    <td><span style="color: var(--text-muted);">{{.Size}}</span></td>
-                    <td><span style="color: var(--text-muted);">{{.ModTime}}</span></td>
-                    <td>
-                        <div class="actions-cell">
-                            <a href="/download?file={{.Name}}" class="btn-sm btn-dl">تحميل</a>
-                            <form action="/delete" method="POST" onsubmit="return confirm('تأكيد حذف الملف نهائياً؟');">
-                                <input type="hidden" name="file" value="{{.Name}}">
-                                <button type="submit" class="btn-sm btn-del">حذف</button>
-                            </form>
-                        </div>
-                    </td>
-                </tr>
-                {{end}}
-            </tbody>
-        </table>
-        {{else}}
-        <div style="text-align: center; padding: 80px; color: var(--text-muted);">
-            <i class="fas fa-folder-open" style="font-size: 5rem; margin-bottom: 20px; opacity: 0.2;"></i>
-            <h2>المخزن فارغ تماماً</h2>
-            <p>ابدأ برفع الملفات لملء الأرشيف الرقمي</p>
-        </div>
-        {{end}}
-        
-        <div class="footer">
-            <p>&copy; 2026 Nexa Ultimate System | Matrix Expansion v3.1</p>
+    <div class="sidebar">
+        <div class="logo"><i class="fas fa-cube"></i> NEXA CLOUD</div>
+        <div class="nav-item active" onclick="loadFiles('')"><i class="fas fa-home"></i> الرئيسيه</div>
+        <div class="nav-item" onclick="loadFiles('incoming')"><i class="fas fa-inbox"></i> الوارد (Incoming)</div>
+        <div class="nav-item" onclick="loadFiles('shared')"><i class="fas fa-share-alt"></i> مشترك (Shared)</div>
+        <div class="nav-item" onclick="loadFiles('vault')"><i class="fas fa-lock"></i> الخزنة (Vault)</div>
+        <div class="nav-item" onclick="loadFiles('backup')"><i class="fas fa-sync"></i> النسخ الاحتياطي</div>
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border); display: none;" id="cat-filters">
+            <div style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 10px; font-weight:700;">التصنيفات</div>
+            <div class="nav-item" onclick="filterType('image')"><i class="fas fa-image"></i> صور</div>
+            <div class="nav-item" onclick="filterType('video')"><i class="fas fa-video"></i> فيديو</div>
+            <div class="nav-item" onclick="filterType('doc')"><i class="fas fa-file-alt"></i> مستندات</div>
         </div>
     </div>
-    
+
+    <div class="main-content" id="dropZone">
+        <div class="drag-overlay">
+            <i class="fas fa-cloud-upload-alt" style="font-size: 5rem; color: white; margin-bottom: 20px;"></i>
+            <h2 style="color: white;">أفلت الملفات للرفع الفوري</h2>
+        </div>
+        <div class="top-bar">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="بحث في الملفات..." onkeyup="searchFiles()">
+                <i class="fas fa-search"></i>
+            </div>
+            <div class="actions">
+                 <button class="btn btn-glass" onclick="createFolder()"><i class="fas fa-folder-plus"></i></button>
+                 <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                    <i class="fas fa-cloud-upload"></i> رفع ملف
+                 </button>
+                 <input type="file" id="fileInput" hidden multiple onchange="handleFileSelect(this.files)">
+            </div>
+        </div>
+        <div class="file-area">
+            <div class="breadcrumbs" id="breadcrumbs"><span onclick="loadFiles('')">الرئيسية</span></div>
+            <div class="grid-view" id="fileList"></div>
+        </div>
+    </div>
+
+    <div id="shareModal" class="modal">
+        <div class="modal-content">
+            <h2 style="margin-bottom: 20px;">مشاركة الملف</h2>
+            <div id="qr-code"></div>
+            <p style="color: var(--text-muted); margin: 15px 0;">انسخ الرابط أو امسح الكود</p>
+            <input type="text" id="shareLink" readonly style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--glass); color: white; text-align: center;">
+            <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: center;">
+                <button class="btn btn-primary" onclick="copyLink()">نسخ الرابط</button>
+                <button class="btn btn-glass" onclick="closeModal()">إغلاق</button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        document.getElementById('fileInput').addEventListener('change', function() {
-            if (this.files.length > 0) {
-                const btn = document.querySelector('.btn-action');
-                btn.textContent = 'جاهز: ' + this.files[0].name;
-                btn.style.background = 'linear-gradient(135deg, #06b6d4, #6366f1)';
-            }
+        let currentPath = ''; let allFiles = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadFiles(''); setupDragDrop();
+            if(window.innerWidth > 768) document.getElementById('cat-filters').style.display = 'block';
         });
-        
-        document.querySelector('form').addEventListener('submit', function() {
-            const fileInput = document.getElementById('fileInput');
-            if (fileInput.files.length === 0) {
-                alert('يرجى اختيار ملف');
-                return false;
+
+        function loadFiles(path) {
+            currentPath = path; updateBreadcrumbs(path);
+            if (path.includes('vault')) {
+                const pin = prompt("🔐 الخزنة مشفرة. رمز الحماية:");
+                if (pin !== '1234') { alert("رمز خاطئ!"); loadFiles(''); return; }
             }
-            const fileSize = fileInput.files[0].size;
-            const maxSize = 500 * 1024 * 1024; // 500MB
-            if (fileSize > maxSize) {
-                alert('حجم الملف كبير جداً. الحد الأقصى: 500MB');
-                return false;
+            // FIXED: Relative paths to support proxying
+            fetch('api/list?dir=' + encodeURIComponent(path))
+                .then(res => res.json())
+                .then(data => { allFiles = data || []; renderFiles(allFiles); })
+                .catch(err => { console.error(err); document.getElementById('fileList').innerHTML = '<div style="color:#ef4444; padding:40px; text-align:center;">خطأ في الاتصال بالسيرفر</div>'; });
+        }
+
+        function renderFiles(files) {
+            const container = document.getElementById('fileList'); container.innerHTML = '';
+            if (!files || files.length === 0) {
+                container.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 50px; color: var(--text-muted);">المجلد فارغ</div>';
+                return;
             }
-            return true;
-        });
+            files.forEach(file => {
+                const div = document.createElement('div'); div.className = 'file-card';
+                div.onclick = () => { if (file.IsDir) loadFiles(currentPath ? currentPath + '/' + file.Name : file.Name); };
+                const icon = file.IsDir ? '📁' : getIcon(file.Name);
+                let actions = '';
+                if (!file.IsDir) {
+                    actions = '<button class="btn btn-sm btn-glass" onclick="openShare(\'' + file.Name + '\')" style="padding: 5px 10px;"><i class="fas fa-share-alt"></i></button>';
+                    actions += '<a href="download?file=' + encodeURIComponent(currentPath ? currentPath + '/' + file.Name : file.Name) + '" class="btn btn-sm btn-glass" style="padding: 5px 10px; text-decoration:none;"><i class="fas fa-download"></i></a>';
+                }
+                actions += '<button class="btn btn-sm btn-glass" onclick="deleteFile(\'' + file.Name + '\')" style="padding: 5px 10px; color: #ef4444;"><i class="fas fa-trash"></i></button>';
+
+                div.innerHTML = '<div class="file-icon">' + icon + '</div>' +
+                                '<div class="file-name" title="' + file.Name + '">' + file.Name + '</div>' +
+                                '<div class="file-meta">' + file.Size + '</div>' +
+                                '<div class="context-menu" onclick="event.stopPropagation()">' + actions + '</div>';
+                container.appendChild(div);
+            });
+        }
+
+        function getIcon(name) {
+            const ext = name.split('.').pop().toLowerCase();
+            const map = { 'pdf':'📕', 'doc':'📄', 'txt':'📝', 'jpg':'🖼️', 'png':'🖼️', 'mp4':'🎬', 'mp3':'🎵', 'zip':'📦', 'exe':'⚙️' };
+            return map[ext] || '📄';
+        }
+
+        function filterType(type) {
+            let filtered = [];
+            if (type === 'image') filtered = allFiles.filter(f => /\.(jpg|jpeg|png|gif)$/i.test(f.Name));
+            if (type === 'video') filtered = allFiles.filter(f => /\.(mp4|mov|avi)$/i.test(f.Name));
+            if (type === 'doc') filtered = allFiles.filter(f => /\.(pdf|doc|docx|txt)$/i.test(f.Name));
+            renderFiles(filtered);
+        }
+
+        function searchFiles() {
+            const q = document.getElementById('searchInput').value.toLowerCase();
+            renderFiles(allFiles.filter(f => f.Name.toLowerCase().includes(q)));
+        }
+
+        function updateBreadcrumbs(path) {
+            const bc = document.getElementById('breadcrumbs');
+            if (!path) { bc.innerHTML = '<span onclick="loadFiles(\'\')">الرئيسية</span>'; return; }
+            const parts = path.split('/');
+            let html = '<span onclick="loadFiles(\'\')">الرئيسية</span>', acc = '';
+            parts.forEach(p => { acc += (acc ? '/' : '') + p; html += ' / <span onclick="loadFiles(\'' + acc + '\')">' + p + '</span>'; });
+            bc.innerHTML = html;
+        }
+
+        function openShare(filename) {
+            const filePath = currentPath ? currentPath + '/' + filename : filename;
+            fetch('api/share?file=' + encodeURIComponent(filePath))
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('shareLink').value = data.link;
+                    document.getElementById('qr-code').innerHTML = '';
+                    new QRCode(document.getElementById('qr-code'), { text: data.link, width: 128, height: 128 });
+                    document.getElementById('shareModal').style.display = 'flex';
+                });
+        }
+        function closeModal() { document.getElementById('shareModal').style.display = 'none'; }
+        function copyLink() { document.getElementById("shareLink").select(); document.execCommand("copy"); alert("تم النسخ"); }
+        function deleteFile(filename) {
+            if(!confirm('حذف النهائي؟')) return;
+            const filePath = currentPath ? currentPath + '/' + filename : filename;
+            fetch('delete?file=' + encodeURIComponent(filePath), { method: 'POST' }).then(() => loadFiles(currentPath));
+        }
+        function createFolder() {
+            const name = prompt("اسم المجلد:");
+            if (name) {
+                const path = currentPath ? currentPath + '/' + name : name;
+                fetch('api/mkdir?dir=' + encodeURIComponent(path)).then(() => loadFiles(currentPath));
+            }
+        }
+        function setupDragDrop() {
+            const dz = document.getElementById('dropZone');
+            document.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-active'); });
+            document.addEventListener('dragleave', e => { if (!e.relatedTarget || !e.relatedTarget.closest('.drag-overlay')) dz.classList.remove('drag-active'); });
+            document.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-active'); if(e.dataTransfer.files.length) handleFileSelect(e.dataTransfer.files); });
+        }
+        function handleFileSelect(files) {
+            const fd = new FormData();
+            for (let i=0; i<files.length; i++) fd.append('file', files[i]);
+            if (currentPath) fd.append('dir', currentPath);
+            fetch('upload', { method: 'POST', body: fd }).then(res => { if(res.ok) loadFiles(currentPath); else alert('خطأ في الرفع'); });
+        }
     </script>
 </body>
 </html>
 `
 
 type FileInfo struct {
-	Name    string
-	Size    string
-	ModTime string
-	Icon    string
+	Name   string
+	Size   string
+	Time   string
+	IsDir  bool
+	IsLink bool
 }
 
 func Start() {
 	// Ensure professional storage structure
-	subDirs := []string{"incoming", "shared", "vault", "temp"}
+	subDirs := []string{"incoming", "shared", "vault", "backup", "temp"}
 	for _, sub := range subDirs {
 		path := filepath.Join(StorageRoot, sub)
 		if _, err := os.Stat(path); os.IsNotExist(err) {
@@ -324,17 +508,23 @@ func Start() {
 		}
 	}
 
+	// Start Auto-Backup Routine (Every 5 minutes)
+	go startAutoBackup()
+
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", enableCORS(dirHandler))
+	mux.HandleFunc("/", enableCORS(webHandler))
 	mux.HandleFunc("/upload", enableCORS(uploadHandler))
 	mux.HandleFunc("/delete", enableCORS(deleteHandler))
 	mux.HandleFunc("/download", enableCORS(downloadHandler))
+	mux.HandleFunc("/api/list", enableCORS(listAPIHandler))
 	mux.HandleFunc("/api/stats", enableCORS(statsHandler))
-	mux.HandleFunc("/api/list", enableCORS(listHandler))
+	mux.HandleFunc("/api/share", enableCORS(shareAPIHandler))
+	mux.HandleFunc("/api/mkdir", enableCORS(mkdirAPIHandler))
+	mux.HandleFunc("/s/", enableCORS(handleSharedLink))
 
 	localIP := utils.GetLocalIP()
-	utils.LogInfo("Storage", fmt.Sprintf("Storage Root:      %s", StorageRoot))
-	utils.LogInfo("Storage", fmt.Sprintf("Web Interface:     http://%s:%s", localIP, Port))
+	utils.LogInfo("Storage", fmt.Sprintf("Root: %s", StorageRoot))
+	utils.LogInfo("Storage", fmt.Sprintf("UI:   http://%s:%s", localIP, Port))
 	utils.SaveEndpoint("storage", fmt.Sprintf("http://%s:%s", localIP, Port))
 
 	server := &http.Server{
@@ -347,192 +537,85 @@ func Start() {
 	}
 }
 
+func startAutoBackup() {
+	ticker := time.NewTicker(5 * time.Minute)
+	for range ticker.C {
+		source := filepath.Join(StorageRoot, "incoming")
+		dest := filepath.Join(StorageRoot, "backup")
+		files, _ := os.ReadDir(source)
+		for _, f := range files {
+			if !f.IsDir() {
+				srcFile, err := os.Open(filepath.Join(source, f.Name()))
+				if err != nil {
+					continue
+				}
+				dstFile, err := os.Create(filepath.Join(dest, f.Name()))
+				if err != nil {
+					srcFile.Close()
+					continue
+				}
+				io.Copy(dstFile, srcFile)
+				srcFile.Close()
+				dstFile.Close()
+			}
+		}
+	}
+}
+
 func enableCORS(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-		if r.Method == "OPTIONS" {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
 		next(w, r)
 	}
 }
 
-func listHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	files, _ := os.ReadDir(StorageRoot)
-	var fileList []FileInfo
-	for _, f := range files {
-		if !f.IsDir() {
-			info, _ := f.Info()
-			ext := filepath.Ext(f.Name())
-			icon := getFileIcon(ext)
-			fileList = append(fileList, FileInfo{
-				Name:    f.Name(),
-				Size:    utils.FormatSize(info.Size()),
-				ModTime: info.ModTime().Format("2006-01-02 15:04:05"),
-				Icon:    icon,
-			})
-		}
-	}
-	// Sort by newest first
-	sort.Slice(fileList, func(i, j int) bool {
-		return fileList[i].ModTime > fileList[j].ModTime
-	})
-
-	importJSON, _ := json.Marshal(fileList)
-	w.Write(importJSON)
-}
-
-func dirHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Cache-Control", "no-cache")
+func webHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-
-	files, _ := os.ReadDir(StorageRoot)
-	var fileList []FileInfo
-	totalSize := int64(0)
-
-	for _, f := range files {
-		if !f.IsDir() {
-			info, _ := f.Info()
-			ext := filepath.Ext(f.Name())
-			icon := getFileIcon(ext)
-			fileList = append(fileList, FileInfo{
-				Name:    f.Name(),
-				Size:    utils.FormatSize(info.Size()),
-				ModTime: info.ModTime().Format("2006-01-02 15:04:05"),
-				Icon:    icon,
-			})
-			totalSize += info.Size()
-		}
-	}
-
-	// Sort by newest first
-	sort.Slice(fileList, func(i, j int) bool {
-		return fileList[i].ModTime > fileList[j].ModTime
-	})
-
-	localIP := utils.GetLocalIP()
 	tmpl := template.Must(template.New("fm").Parse(FileMangerHTML))
-	tmpl.Execute(w, map[string]interface{}{
-		"Files":     fileList,
-		"Port":      Port,
-		"LocalIP":   localIP,
-		"Time":      time.Now().Format("2006-01-02 15:04"),
-		"FileCount": len(fileList),
-		"TotalSize": utils.FormatSize(totalSize),
-	})
+	tmpl.Execute(w, nil)
 }
 
-func uploadHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-		return
+func listAPIHandler(w http.ResponseWriter, r *http.Request) {
+	subDir := r.URL.Query().Get("dir")
+	if strings.Contains(subDir, "..") {
+		subDir = ""
 	}
-
-	// Parse multipart form
-	err := r.ParseMultipartForm(500 * 1024 * 1024) // 500MB max
+	readPath := filepath.Join(StorageRoot, subDir)
+	files, err := os.ReadDir(readPath)
 	if err != nil {
-		http.Error(w, "File too large or invalid upload", 413)
-		return
-	}
-
-	file, header, err := r.FormFile("file")
-	if err != nil {
-		http.Error(w, "Failed to get file", 400)
-		return
-	}
-	defer file.Close()
-
-	// Sanitize filename
-	filename := filepath.Base(header.Filename)
-	if filename == "" || filename == "." {
-		http.Error(w, "Invalid filename", 400)
-		return
-	}
-
-	// Create file with timestamp if duplicate
-	targetPath := filepath.Join(StorageRoot, filename)
-	if _, err := os.Stat(targetPath); err == nil {
-		// File exists, add timestamp
-		ext := filepath.Ext(filename)
-		name := strings.TrimSuffix(filename, ext)
-		filename = fmt.Sprintf("%s_%d%s", name, time.Now().Unix(), ext)
-		targetPath = filepath.Join(StorageRoot, filename)
-	}
-
-	// Create the file
-	dst, err := os.Create(targetPath)
-	if err != nil {
-		http.Error(w, "Unable to create file", 500)
-		return
-	}
-	defer dst.Close()
-
-	// Copy with progress tracking
-	written, err := io.Copy(dst, file)
-	if err != nil {
-		os.Remove(targetPath)
-		http.Error(w, "Error writing file", 500)
-		return
-	}
-
-	utils.LogSuccess("Storage", fmt.Sprintf("File uploaded: %s (%s)", filename, utils.FormatSize(written)))
-
-	// Check if JSON response is expected (for Ajax uploads)
-	if r.Header.Get("Accept") == "application/json" {
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, `{"status":"success","filename":"%s","size":"%s"}`, filename, utils.FormatSize(written))
-		return
-	}
-
-	http.Redirect(w, r, "/", http.StatusSeeOther)
-}
-
-func deleteHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "POST" {
-		filename := r.FormValue("file")
-		targetPath := filepath.Join(StorageRoot, filepath.Base(filename))
-
-		if err := os.Remove(targetPath); err == nil {
-			utils.LogInfo("Storage", fmt.Sprintf("File deleted: %s", filename))
-		}
-
-		// Check if JSON response is expected
-		if r.Header.Get("Accept") == "application/json" {
-			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintf(w, `{"status":"success"}`)
+		if subDir == "" {
+			os.MkdirAll(StorageRoot, 0755)
+			files, _ = os.ReadDir(readPath)
+		} else {
+			http.Error(w, "Directory not found", 404)
 			return
 		}
 	}
-	http.Redirect(w, r, "/", http.StatusSeeOther)
-}
-
-func downloadHandler(w http.ResponseWriter, r *http.Request) {
-	filename := r.FormValue("file")
-	targetPath := filepath.Join(StorageRoot, filepath.Base(filename))
-
-	// Check if file exists
-	if _, err := os.Stat(targetPath); os.IsNotExist(err) {
-		http.Error(w, "File not found", 404)
-		return
+	var fileList []FileInfo
+	for _, f := range files {
+		info, _ := f.Info()
+		fileList = append(fileList, FileInfo{
+			Name:  f.Name(),
+			Size:  utils.FormatSize(info.Size()),
+			Time:  info.ModTime().Format("02/01 15:04"),
+			IsDir: f.IsDir(),
+		})
 	}
-
-	// Set headers for download
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
-	w.Header().Set("Content-Type", "application/octet-stream")
-
-	utils.LogInfo("Storage", fmt.Sprintf("File downloading: %s", filename))
-	http.ServeFile(w, r, targetPath)
+	sort.Slice(fileList, func(i, j int) bool {
+		if fileList[i].IsDir != fileList[j].IsDir {
+			return fileList[i].IsDir
+		}
+		return fileList[i].Time > fileList[j].Time
+	})
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(fileList)
 }
 
 func statsHandler(w http.ResponseWriter, r *http.Request) {
 	files, _ := os.ReadDir(StorageRoot)
 	totalSize := int64(0)
 	fileCount := 0
-
 	for _, f := range files {
 		if !f.IsDir() {
 			info, _ := f.Info()
@@ -540,37 +623,99 @@ func statsHandler(w http.ResponseWriter, r *http.Request) {
 			fileCount++
 		}
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprintf(w, `{"files":%d,"totalSize":%d,"totalSizeFormatted":"%s"}`, fileCount, totalSize, utils.FormatSize(totalSize))
 }
 
-func getFileIcon(ext string) string {
-	ext = strings.ToLower(ext)
-	icons := map[string]string{
-		".pdf":  "📕",
-		".doc":  "📄",
-		".docx": "📄",
-		".txt":  "📝",
-		".mp3":  "🎵",
-		".mp4":  "🎬",
-		".jpg":  "🖼️",
-		".jpeg": "🖼️",
-		".png":  "🖼️",
-		".gif":  "🖼️",
-		".zip":  "📦",
-		".rar":  "📦",
-		".7z":   "📦",
-		".exe":  "⚙️",
-		".msi":  "⚙️",
-		".xlsx": "📊",
-		".csv":  "📊",
-		".iso":  "💿",
-		".apk":  "📱",
+func uploadHandler(w http.ResponseWriter, r *http.Request) {
+	r.ParseMultipartForm(500 << 20) // 500MB
+	files := r.MultipartForm.File["file"]
+	targetDir := r.FormValue("dir")
+	if strings.Contains(targetDir, "..") {
+		targetDir = ""
 	}
+	saveDir := filepath.Join(StorageRoot, targetDir)
+	os.MkdirAll(saveDir, 0755)
 
-	if icon, ok := icons[ext]; ok {
-		return icon
+	for _, header := range files {
+		file, _ := header.Open()
+
+		// Safe filename with check
+		filename := filepath.Base(header.Filename)
+		targetPath := filepath.Join(saveDir, filename)
+		if _, err := os.Stat(targetPath); err == nil {
+			ext := filepath.Ext(filename)
+			name := strings.TrimSuffix(filename, ext)
+			filename = fmt.Sprintf("%s_%d%s", name, time.Now().Unix(), ext)
+			targetPath = filepath.Join(saveDir, filename)
+		}
+
+		dst, _ := os.Create(targetPath)
+		written, _ := io.Copy(dst, file)
+
+		utils.LogSuccess("Storage", fmt.Sprintf("Uploaded: %s (%s)", filename, utils.FormatSize(written)))
+		dst.Close()
+		file.Close()
 	}
-	return "📄"
+	w.WriteHeader(200)
+}
+
+func mkdirAPIHandler(w http.ResponseWriter, r *http.Request) {
+	dir := r.URL.Query().Get("dir")
+	if strings.Contains(dir, "..") || dir == "" {
+		return
+	}
+	os.MkdirAll(filepath.Join(StorageRoot, dir), 0755)
+	w.WriteHeader(200)
+}
+
+func deleteHandler(w http.ResponseWriter, r *http.Request) {
+	file := r.URL.Query().Get("file")
+	if strings.Contains(file, "..") {
+		return
+	}
+	os.RemoveAll(filepath.Join(StorageRoot, file))
+	utils.LogInfo("Storage", "Deleted: "+file)
+	w.WriteHeader(200)
+}
+
+func downloadHandler(w http.ResponseWriter, r *http.Request) {
+	file := r.URL.Query().Get("file")
+	if strings.Contains(file, "..") {
+		return
+	}
+	path := filepath.Join(StorageRoot, file)
+	w.Header().Set("Content-Disposition", "attachment; filename="+filepath.Base(file))
+	http.ServeFile(w, r, path)
+}
+
+func shareAPIHandler(w http.ResponseWriter, r *http.Request) {
+	file := r.URL.Query().Get("file")
+	if file == "" {
+		return
+	}
+	hasher := md5.New()
+	hasher.Write([]byte(file + time.Now().String()))
+	token := hex.EncodeToString(hasher.Sum(nil))[:8]
+	shareMutex.Lock()
+	shareLinks[token] = file
+	shareMutex.Unlock()
+	localIP := utils.GetLocalIP()
+	link := fmt.Sprintf("http://%s:%s/s/%s", localIP, Port, token)
+	w.Header().Set("Content-Type", "application/json")
+	fmt.Fprintf(w, `{"link":"%s"}`, link)
+}
+
+func handleSharedLink(w http.ResponseWriter, r *http.Request) {
+	token := strings.TrimPrefix(r.URL.Path, "/s/")
+	shareMutex.RLock()
+	file, exists := shareLinks[token]
+	shareMutex.RUnlock()
+	if !exists {
+		http.Error(w, "Link expired", 404)
+		return
+	}
+	path := filepath.Join(StorageRoot, file)
+	w.Header().Set("Content-Disposition", "attachment; filename="+filepath.Base(file))
+	http.ServeFile(w, r, path)
 }
