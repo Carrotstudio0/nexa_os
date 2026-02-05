@@ -328,6 +328,9 @@ const dashboardHTML = `
         <div class="nav-item" onclick="showSection('files', this)">
             <i class="fas fa-folder-open"></i> الملفات
         </div>
+        <div class="nav-item" onclick="showSection('chat', this)">
+            <i class="fas fa-comments"></i> المحادثة
+        </div>
         <div class="nav-item" onclick="showSection('admin', this)">
             <i class="fas fa-cogs"></i> إدارة النظام
         </div>
@@ -423,6 +426,22 @@ const dashboardHTML = `
             <iframe src="http://localhost:8080" class="full-frame" title="Admin Panel"></iframe>
         </div>
 
+        <!-- CHAT SECTION -->
+        <div id="chat" class="section">
+            <h1>المحادثة العامة 💬</h1>
+            <div class="chat-container">
+                <div class="chat-messages" id="chat-messages">
+                    <!-- Messages will appear here -->
+                    <div style="text-align:center; color:#666; margin-top:50px;">جاري تحميل المحادثة...</div>
+                </div>
+                <div class="chat-input-area">
+                    <input type="text" id="chat-username" placeholder="الاسم" style="width:20%; padding:15px; border-radius:10px; border:none; background:rgba(255,255,255,0.1); color:white; text-align:center;">
+                    <input type="text" id="chat-input" placeholder="اكتب رسالتك هنا..." style="width:60%; padding:15px; border-radius:10px; border:none; background:rgba(255,255,255,0.1); color:white;">
+                    <button class="btn" onclick="sendMessage()" style="width:15%;">إرسال 🚀</button>
+                </div>
+            </div>
+        </div>
+
         <!-- NETWORK SECTION (Placeholder) -->
         <div id="network" class="section">
             <h1>مراقبة الشبكة</h1>
@@ -440,6 +459,62 @@ const dashboardHTML = `
 
     </div>
 
+    <style>
+        /* Chat Styles */
+        .chat-container {
+            background: var(--glass);
+            border-radius: 20px;
+            border: 1px solid var(--glass-border);
+            height: calc(100vh - 120px);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .message {
+            background: rgba(255,255,255,0.05);
+            padding: 10px 15px;
+            border-radius: 15px;
+            border-bottom-right-radius: 2px;
+            max-width: 80%;
+            align-self: flex-start;
+            animation: fadeIn 0.3s;
+        }
+        .message.mine {
+            background: rgba(0, 210, 255, 0.15);
+            align-self: flex-end;
+            border-bottom-right-radius: 15px;
+            border-bottom-left-radius: 2px;
+        }
+        .message.admin {
+            background: rgba(255, 215, 0, 0.1);
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            width: 100%;
+            text-align: center;
+        }
+        .msg-header {
+            font-size: 0.75rem;
+            color: var(--primary);
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .msg-content { font-size: 1rem; line-height: 1.4; word-break: break-word; }
+        .chat-input-area {
+            padding: 20px;
+            background: rgba(0,0,0,0.2);
+            display: flex;
+            gap: 10px;
+        }
+    </style>
+
     <script>
         // Navigation Logic
         function showSection(id, tab) {
@@ -451,14 +526,19 @@ const dashboardHTML = `
                 tab.classList.add('active');
             }
 
-            if(id === 'files') {
-                loadFiles();
+            if(id === 'files') loadFiles();
+            if(id === 'chat') {
+                scrollToBottom();
+                document.getElementById('chat-input').focus();
             }
         }
 
-        // --- File Manager Logic ---
-        const FILES_API = 'http://' + window.location.hostname + ':8081';
+        // Configuration
+        const HOST = window.location.hostname;
+        const FILES_API = 'http://' + HOST + ':8081';
+        const CHAT_API = 'http://' + HOST + ':8082';
 
+        // --- File Manager Logic ---
         async function loadFiles() {
             const container = document.getElementById('files-container');
             const statusParams = document.getElementById('files-status');
@@ -467,10 +547,8 @@ const dashboardHTML = `
                 const response = await axios.get(FILES_API + '/api/list');
                 const files = response.data;
                 
-                // Update stats
                 document.getElementById('total-files').textContent = files.length;
                 
-                // Render
                 container.innerHTML = '';
                 if(files.length === 0) {
                     container.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:50px; color:#666;">لا توجد ملفات</div>';
@@ -483,17 +561,11 @@ const dashboardHTML = `
                     div.innerHTML = '<div class="file-icon-lg">' + file.Icon + '</div>' +
                                     '<div class="file-name">' + file.Name + '</div>' +
                                     '<div class="file-meta">' + file.Size + '</div>';
-                    
                     div.onclick = () => window.open(FILES_API + '/download?file=' + encodeURIComponent(file.Name));
-                    
-                    // Add delete context menu or button? For now just simple open
                     container.appendChild(div);
                 });
-                
                 statusParams.textContent =  files.length + ' ملفات';
-
             } catch (error) {
-                console.error(error);
                 container.innerHTML = '<div style="color:red; text-align:center; grid-column:1/-1;">خطأ في الاتصال بخادم الملفات (Port 8081)</div>';
             }
         }
@@ -502,18 +574,15 @@ const dashboardHTML = `
         const fileInput = document.getElementById('fileUploadInput');
         fileInput.addEventListener('change', async (e) => {
             if(e.target.files.length === 0) return;
-            
             const formData = new FormData();
             for(let i=0; i<e.target.files.length; i++) {
                 formData.append('file', e.target.files[i]);
             }
-
             try {
                 document.getElementById('files-status').textContent = 'جاري الرفع...';
                 await axios.post(FILES_API + '/upload', formData, {
-                    headers: { 'Content-Type': 'multipart/form-data', 'Accept': 'application/json' }
+                    headers: { 'Content-Type': 'multipart/form-data' }
                 });
-                // Reload files
                 loadFiles();
                 alert('تم رفع الملفات بنجاح ✅');
             } catch (error) {
@@ -521,8 +590,79 @@ const dashboardHTML = `
             }
         });
 
-        // Initial Load
-        loadFiles(); // To get stats for overview
+        // --- Chat Logic ---
+        let lastMsgId = 0;
+        let myName = localStorage.getItem('nexa_username') || 'Guest';
+        document.getElementById('chat-username').value = myName;
+
+        document.getElementById('chat-username').addEventListener('change', (e) => {
+            myName = e.target.value;
+            localStorage.setItem('nexa_username', myName);
+        });
+
+        document.getElementById('chat-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+
+        async function sendMessage() {
+            const input = document.getElementById('chat-input');
+            const content = input.value.trim();
+            if (!content) return;
+
+            try {
+                await axios.post(CHAT_API + '/send', {
+                    sender: myName,
+                    content: content
+                });
+                input.value = '';
+                loadMessages();
+            } catch (error) {
+                console.error("Chat Error:", error);
+            }
+        }
+
+        async function loadMessages() {
+            try {
+                const response = await axios.get(CHAT_API + '/messages');
+                const messages = response.data;
+                const container = document.getElementById('chat-messages');
+
+                // Simple render: clear and redraw if count changes (basic syncing)
+                // For a real app, we would append only new ones.
+                 // Optimization: Only update if length changed or first load
+                 // For now, just redraw to be safe and simple.
+                container.innerHTML = '';
+                
+                messages.forEach(msg => {
+                    const div = document.createElement('div');
+                    const isMine = msg.sender === myName;
+                    div.className = 'message ' + (isMine ? 'mine' : '') + (msg.isAdmin ? ' admin' : '');
+                    
+                    div.innerHTML = '<div class="msg-header">' +
+                                        '<span>' + msg.sender + '</span>' +
+                                        '<span>' + msg.timestamp + '</span>' +
+                                    '</div>' +
+                                    '<div class="msg-content">' + msg.content + '</div>';
+                    container.appendChild(div);
+                });
+                
+                // Auto scroll if near bottom
+                // container.scrollTop = container.scrollHeight;
+            } catch (error) {
+                console.error("Chat Poll Error:", error);
+            }
+        }
+
+        function scrollToBottom() {
+            const container = document.getElementById('chat-messages');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // Initialize
+        loadFiles();
+        setInterval(loadMessages, 2000); // Poll chat every 2s
+        setTimeout(scrollToBottom, 2500);
+
     </script>
 </body>
 </html>
