@@ -1,333 +1,156 @@
-# Nexa Protocol
+# 🌌 Nexa OS - Ultimate Local Cloud System (v3.0)
 
-A custom network protocol built from scratch with its own DNS system. Think of it as building your own mini-internet that runs on top of TCP/IP.
+> **The Next-Generation Local Network Operating System.**  
+> *Transforming standard LAN connectivity into a fully-featured, intelligent cloud infrastructure.*
 
-## 🚀 Quick Start
+---
 
-**For the fastest setup:**
-1. Run `test.bat` to verify your environment
-2. Run `build.bat` to build all components
-3. Run `start.bat` to launch all services
-4. Open http://localhost:8080 (user: admin, pass: admin123)
+## 📋 Table of Contents
+1. [Project Overview](#-project-overview)
+2. [System Architecture](#-system-architecture)
+3. [Key Features](#-key-features)
+4. [Microservices Breakdown](#-microservices-breakdown)
+5. [User Interface (UI/UX)](#-user-interface-uiyx)
+6. [Networking & Security](#-networking--security)
+7. [Installation & Usage](#-installation--usage)
+8. [Credits & Developers](#-credits--developers)
 
-📚 **Documentation:**
-- [QUICKSTART.md](QUICKSTART.md) - Quick reference guide
-- [BUILD.md](BUILD.md) - Detailed build instructions
-- [readme.md](readme.md) - Full documentation (this file)
+---
 
-## What is this?
+## 🔭 Project Overview
 
-Nexa is a complete network stack that includes:
+**Nexa OS** is not just a file-sharing tool; it is a **complete local cloud ecosystem** built from scratch using **Go (Golang)**. It replaces traditional OS networking limitations (like SMB/Windows Sharing) with a web-based, platform-independent architecture.
 
-- **Custom Protocol**: Your own communication protocol (like HTTP, but yours)
-- **DNS System**: Translate names like `mysite.nexa` into IP addresses and ports
-- **Client/Server**: Tools to interact with the network
+The system acts as a "mini-internet" inside your local network, featuring its own **DNS Authority**, **Central Gateway**, **Cloud Storage**, and **Social Platform (Chat)**.
 
-This isn't just a toy project - it's a fully functional alternative network layer that demonstrates how protocols and DNS actually work under the hood.
+### 🚀 What's New in v3.0 Ultimate?
+- **Transition from CLI to GUI:** No more staring at terminal screens; everything is now web-based.
+- **Mobile First:** Full support for Smartphones, Tablets, and Laptops via Hotspot/Wi-Fi.
+- **Intelligent Networking:** Auto-detection of Host IP and Firewall Bypassing.
+- **Unified Dashboard:** A single glassmorphism interface to control the entire system.
 
-## Project Structure
+---
 
-```
-nexa/
-├── server/
-│   └── server.go          # Main Nexa server (port 1413)
-├── dns/
-│   └── dns_server.go      # DNS resolution service (port 1112)
-├── client/
-│   └── client.go          # Smart client with DNS support
-├── dns_client.go          # DNS management tool
-└── go.mod
-```
+## 🏗 System Architecture
 
+The project follows a **Microservices Architecture**, where each component runs independently but communicates via a central nervous system (The Gateway).
 
-## TLS/SSL Encryption Support
-
-**All connections (server, DNS, client) now use TLS encryption by default.**
-
-- شهادات TLS ذاتية التوقيع موجودة في مجلد `certs/`
-- عند التشغيل، جميع الأطراف تستخدم الاتصال المشفر (InsecureSkipVerify=true للعمل التجريبي)
-
-## How it Works
-
-### The Flow
-
-1. **DNS Server** runs on port 1112 and maintains a registry of `.nexa` domains
-2. **Nexa Server** runs on port 1413 and stores/serves content
-3. **Client** can either:
-   - Connect directly to the server using `localhost:1413`
-   - Use `.nexa` domain names which get resolved via DNS first
-
-### Example Flow
-
-```
-User runs: ./client FETCH mysite.nexa
-
-1. Client sees ".nexa" extension
-2. Client queries DNS server: "What's the address for mysite.nexa?"
-3. DNS responds: "127.0.0.1:1413"
-4. Client connects to that address
-5. Client sends: FETCH mysite.nexa
-6. Server returns the stored content
+```mermaid
+graph TD
+    User[User Device (Mobile/PC)] --> Gateway[Central Gateway (:8000)]
+    Gateway --> Dashboard[Unified Dashboard (:7000)]
+    Gateway --> Cloud[Nexa Cloud Storage (:8081)]
+    Gateway --> Chat[Live Chat System (:8082)]
+    Gateway --> Admin[Admin Controller (:8080)]
+    Gateway --> DNS[DNS Authority (:53)]
+    Gateway --> Core[Ledger Core (:9000)]
 ```
 
-## Installation
+---
+
+## 🌟 Key Features
+
+### 1. 📂 Nexa Cloud Storage (The Local Drive)
+*   **Web-Based Interface:** Upload/Download files from any browser (Chrome, Safari, Edge).
+*   **Drag & Drop:** Supports uploading huge files simply by dragging them.
+*   **Media Streaming:** Watch videos or listen to music directly from the server without downloading.
+*   **Cross-Device:** Transfer files from Phone to PC (and vice versa) instantly via Wi-Fi.
+
+### 2. 💬 Nexa Live Chat (The Social Hub)
+*   **Real-Time Messaging:** Instant communication system for everyone connected to the network.
+*   **Zero-Setup:** Auto-login (Guest) system; just type your name and chat.
+*   **Persistent History:** Keeps the last 1000 messages for new joiners to see context.
+
+### 3. 🖥️ The Ultimate Dashboard (Control Center)
+*   **Glassmorphism Design:** A stunning, modern UI inspired by Windows 11 and MacOS.
+*   **Live Monitoring:** Shows active services, storage usage, and network status.
+*   **One-Click Navigation:** Jump between Admin, Files, and Chat instantly.
+
+### 4. 🧠 Custom DNS Authority
+*   **Why IP Addresses?** Instead of `192.168.1.5`, use `.nexa` domains.
+*   **Resolution:** A fully functional DNS server running on Port 53 (UDP/TCP).
+*   **Service Discovery:** Automatically registers new services (e.g., `chat.nexa`).
+
+---
+
+## 🧩 Microservices Breakdown
+
+| Service | Port | Description | Tech Stack |
+|:---|:---:|:---|:---|
+| **Gateway** | `8000` | The entry point Main Router. Handles traffic & proxying. | Go (Chi Router) |
+| **Dashboard** | `7000` | The User Interface frontend. | HTML5/JS/CSS3 |
+| **Admin Panel**| `8080` | System control, logs, and user management. | Go + Bcrypt |
+| **Web Storage**| `8081` | File Server logic (Upload/Download). | Go + Multipart/Form |
+| **Chat Svc** | `8082` | JSON API for messaging and real-time sync. | Go + Mutex Locks |
+| **Core Node** | `9000` | Blockchain-based ledger for critical data. | Go + TCP Sockets |
+| **DNS Server** | `53` | Domain Name System implementation. | Go + UDP |
+
+---
+
+## 🎨 User Interface (UI/UX)
+The interface was designed with **"Wow Factor"** in mind.
+
+- **Visual Style:** Deep Space Dark Mode with Neon Accents (Cyan/Purple).
+- **Glass Effect:** Heavy use of `backdrop-filter: blur()` for that "Frosted Glass" look.
+- **Responsiveness:** Fluid grid layouts that adapt from 4K Monitors down to 5-inch Phone screens.
+- **Animations:** Smooth CSS transitions for hover effects, modal openings, and message arrival.
+
+---
+
+## 🛡️ Networking & Security
+
+### 🧱 Firewall Bypass System
+We developed custom **Automation Scripts** to handle Windows Firewall restrictions:
+- `fix-firewall.bat`: Automatically opens Ports 7000, 8000, 8080, 8081, 8082, 9000.
+- **Hotspot Support:** Configured to work on `Public` network profiles (common in Mobile Hotspots).
+
+### 🔒 Security Layers
+- **Admin Auth:** Bcrypt hashing for password protection on the Admin Panel.
+- **CORS Policies:** Configured middlewares to allow secure Cross-Origin Resource Sharing.
+- **Input Sanitization:** Protection against basic injection attacks in the Chat and File modules.
+
+---
+
+## 📥 Installation & Usage
 
 ### Prerequisites
+- Windows 10/11 (for the Host)
+- Any device with a Browser (Client)
+- Go 1.22+ (for building only)
 
-- Go 1.16 or higher
-- A terminal
+### 🚀 Quick Start
+1. **Build the System:**
+   ```powershell
+   .\bin\build-linux.bat  # For Linux
+   # OR use the manual Go build commands for Windows
+   ```
 
-### Build
+2. **Fix Network Permissions:**
+   Right-click `fix-firewall.bat` and **Run as Administrator**. (One time only)
 
-```bash
-# Clone or download the project
-cd nexa
+3. **Launch Nexa OS:**
+   Double click `bin\start-all.bat`.
+   > *All terminal windows will open with professional ASCII banners.*
 
-# Build all components
-go build -o bin/server ./server/server.go
-go build -o bin/dns ./dns/dns_server.go
-go build -o bin/client ./client/client.go
-go build -o bin/dns-client ./dns_client.go
-```
+4. **Connect:**
+   - **On Host:** Go to `http://localhost:7000`
+   - **On Mobile:** Go to `http://[YOUR-PC-IP]:7000`
 
-Or just run them directly with `go run`.
+---
 
-## Quick Start
+## © Credits & Developers
 
+This massive project was brought to life by:
 
-### Step 1: Start the DNS Server (TLS)
+### 👑 MultiX0
+> **Core Developer & Founder**
+> *Responsible for the original idea, the Blockchain Core, and the initial CLI Protocol design.*
 
-افتح نافذة طرفية:
+### 🛠️ Islam Ibrahim
+> **System Architect & Full-Stack Developer**
+> *Responsible for the v3.0 Ultimate Upgrade: The Web Ecosystem, Unified Dashboard, Gateway Architecture, Chat System, UI/UX Design, and Networking Solutions.*
 
-```bash
-cd dns
-go run dns_server.go
-```
+---
 
-يجب أن ترى:
-```
-DNS Server starting with TLS on :1112
---- DNS Server ready (TLS) ---
-... (default records)
-```
-
-### Step 2: Start the Nexa Server (TLS)
-
-افتح نافذة طرفية أخرى:
-
-```bash
-cd server
-go run server.go
-```
-
-يجب أن ترى:
-```
-Server running with TLS on port: :1413
-Server is ready with TLS, Waiting for connections
-```
-
-### Step 3: Use the Client (TLS)
-
-افتح نافذة طرفية ثالثة وجرب الأوامر:
-
-```bash
-# اختبار الاتصال
-go run client/client.go PING
-
-# تخزين بيانات
-go run client/client.go PUBLISH homepage "Welcome to Nexa"
-
-# جلب البيانات
-go run client/client.go FETCH homepage
-
-# عرض كل البيانات
-go run client/client.go LIST
-
-# جلب بيانات عبر DNS
-go run client/client.go FETCH mysite.nexa
-
-# تخزين بيانات باسم DNS
-go run client/client.go PUBLISH mysite.nexa "Hello from DNS"
-```
-
-## Protocol Commands
-
-### Nexa Server Commands
-
-The server understands these commands:
-
-- **PING** - Health check, server responds with timestamp
-- **FETCH <name>** - Retrieve stored content
-- **PUBLISH <name> <content>** - Store content with a name
-- **LIST** - Show all stored items
-
-### DNS Commands
-
-Manage the DNS registry:
-
-- **PING** - Check if DNS server is alive
-- **RESOLVE <name.nexa>** - Get IP:Port for a domain
-- **REGISTER <name.nexa> <ip> <port> <service>** - Add new domain
-- **UPDATE <name.nexa> <ip> <port> <service>** - Update existing domain
-- **DELETE <name.nexa>** - Remove a domain
-- **LIST** - Show all registered domains
-
-## Usage Examples
-
-### Working with Content
-
-```bash
-# Store a homepage
-go run client/client.go PUBLISH homepage "Welcome to my site"
-
-# Store multiple pages
-go run client/client.go PUBLISH about "About page content"
-go run client/client.go PUBLISH contact "email@example.com"
-
-# Retrieve them
-go run client/client.go FETCH homepage
-go run client/client.go FETCH about
-
-# See everything
-go run client/client.go LIST
-```
-
-### Working with DNS
-
-```bash
-# See what domains exist
-go run dns_client.go LIST
-
-# Look up a domain
-go run dns_client.go RESOLVE mysite.nexa
-
-# Register a new domain
-go run dns_client.go REGISTER blog.nexa 127.0.0.1 1413 web
-
-# Now you can use it
-go run client/client.go PUBLISH blog.nexa "My first post"
-go run client/client.go FETCH blog.nexa
-
-# Update a domain (maybe it moved to a different port)
-go run dns_client.go UPDATE blog.nexa 127.0.0.1 1414 web
-
-# Remove a domain
-go run dns_client.go DELETE blog.nexa
-```
-
-### The Magic: DNS Resolution
-
-When you use a `.nexa` domain, the client automatically:
-
-1. Contacts the DNS server
-2. Gets the real IP and port
-3. Connects to that server
-4. Sends your command
-
-```bash
-# This command triggers DNS resolution
-go run client/client.go FETCH mysite.nexa
-
-# Output shows:
-# Resolving mysite.nexa via DNS...
-# Resolved to 127.0.0.1:1413
-# Connected to Nexa Server
-# [content appears here]
-```
-
-## Understanding the Code
-
-### Server (server/server.go)
-
-The server is straightforward:
-- Listens on TCP port 1413
-- Accepts connections
-- Parses incoming commands
-- Stores data in memory (a simple map)
-- Sends responses back
-
-### DNS Server (dns/dns_server.go)
-
-The DNS server:
-- Listens on TCP port 1112
-- Maintains a registry (map) of name -> address mappings
-- Handles RESOLVE queries
-- Allows registration/updates/deletion of domains
-- Thread-safe with mutex locks
-
-### Client (client/client.go)
-
-The smart client:
-- Takes command line arguments
-- Checks if the target is a `.nexa` domain
-- If yes: queries DNS first, then connects
-- If no: connects directly to localhost:1413
-- Sends the command and displays the response
-
-### DNS Client (dns_client.go)
-
-Simple DNS management tool:
-- Sends DNS commands to the DNS server
-- Formats and displays responses
-- Used for managing the DNS registry
-
-## Why This Matters
-
-This project demonstrates:
-
-1. **Protocol Design**: How protocols like HTTP actually work
-2. **DNS Resolution**: How domain names get translated to addresses
-3. **Client-Server Architecture**: The foundation of the internet
-4. **Network Programming**: Working with TCP sockets in Go
-
-You're not using any framework or library for the protocol itself - it's all raw TCP connections and string parsing. This is how the real internet works at a lower level.
-
-## Limitations
-
-- **In-Memory Storage**: Server data is lost on restart
-- **No Encryption**: Everything is plain text
-- **No Authentication**: Anyone can publish/fetch
-- **Single-Threaded DNS**: One query at a time (though the server handles multiple connections)
-- **Local Only**: Designed for localhost, but can work on LAN
-
-## Future Ideas
-
-- Add persistent storage (save to disk)
-- Implement authentication
-- Add TLS/encryption
-- Support binary data transfer
-- Build a simple web interface
-- Make DNS distributed
-- Add caching layers
-- Support multiple server instances
-
-## Troubleshooting
-
-**"Connection refused" error:**
-- Make sure the server is running first
-- Check the port numbers match (1413 for server, 1112 for DNS)
-
-**DNS resolution fails:**
-- Ensure DNS server is running
-- Verify the domain is registered with `go run dns_client.go LIST`
-
-**"Not found" errors:**
-- Use LIST command to see what's actually stored
-- Remember: storage is in-memory, restart = data loss
-
-## Technical Details
-
-- **Language**: Go
-- **Network**: TCP/IP
-- **Protocol**: Custom text-based
-- **DNS Port**: 1112
-- **Server Port**: 1413
-- **Response Format**: Status line + body + END marker
-
-## License
-
-This is a learning project. Use it however you want.
-
-## Contributing
-
-This is an educational project showing protocol fundamentals. Feel free to fork and experiment.
+*Made with ❤️ and a lot of caffeine.*
+*Nexa OS - v3.0 Ultimate Build*
