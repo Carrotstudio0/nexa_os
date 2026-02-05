@@ -1,0 +1,85 @@
+{
+  "project": "Nexa Protocol",
+  "version": "2.0.0",
+  "description": "نظام شبكة محلية متكامل مع دعم الأجهزة المحمولة - Complete Local Network System with Mobile Support",
+  "author": "Nexa Team",
+  "language": "ar_SA",
+  
+  "services": {
+    "gateway": {
+      "port": 8000,
+      "protocol": "HTTP",
+      "description": "المدخل الرئيسي للنظام - Main Gateway Portal",
+      "purpose": "توجيه الطلبات والوصول إلى جميع الخدمات من مكان واحد"
+    },
+    "web_manager": {
+      "port": 8081,
+      "protocol": "HTTP",
+      "description": "مدير الملفات والتخزين - File Manager & Storage",
+      "purpose": "رفع وتنزيل الملفات من الهاتف والأجهزة الأخرى"
+    },
+    "admin_panel": {
+      "port": 8080,
+      "protocol": "HTTP",
+      "tls": false,
+      "description": "لوحة التحكم - Administration Panel",
+      "purpose": "إدارة النظام والمستخدمين والإعدادات"
+    },
+    "dns": {
+      "port": 1112,
+      "protocol": "TCP",
+      "tls": true,
+      "persistence": "dns_records.json",
+      "audit_log": "dns_audit.log",
+      "description": "خادم الأسماء - DNS Server",
+      "purpose": "تحويل أسماء المجالات إلى عناوين IP"
+    },
+    "server": {
+      "port": 1413,
+      "protocol": "TCP",
+      "tls": true,
+      "persistence": "data.json",
+      "users_file": "users.json",
+      "ledger": "ledger.json",
+      "description": "خادم Nexa الأساسي - Nexa Core Server",
+      "purpose": "معالجة الطلبات الآمنة والتحقق من المستخدمين"
+    }
+  },
+  
+  "security": {
+    "tls_cert": "./certs/cert.pem",
+    "tls_key": "./certs/key.pem",
+    "bcrypt_cost": 10
+  },
+  
+  "defaults": {
+    "admin_user": "admin",
+    "admin_pass": "admin123",
+    "dns_records": [
+      {
+        "name": "test.nexa",
+        "ip": "127.0.0.1",
+        "port": 1413,
+        "service": "web"
+      }
+    ]
+  },
+  
+  "build": {
+    "output_dir": "bin",
+    "targets": [
+      "dns/dns_server.go",
+      "server/server.go",
+      "client/client.go",
+      "dns_client.go",
+      "gui/admin.go",
+      "gui/web.go"
+    ]
+  },
+  
+  "development": {
+    "hot_reload": false,
+    "debug_mode": false,
+    "log_level": "info"
+  }
+}
