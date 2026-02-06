@@ -72,6 +72,8 @@ func EnableHotspot(ssid, password string) error {
 		return enableWindowsHotspot(ssid, password)
 	case "linux":
 		return enableLinuxHotspot(ssid, password)
+	case "darwin":
+		return enableMacHotspot(ssid, password)
 	default:
 		return fmt.Errorf("unsupported OS: %s", runtime.GOOS)
 	}
@@ -94,9 +96,23 @@ func enableWindowsHotspot(ssid, password string) error {
 	return nil
 }
 
-// enableLinuxHotspot uses hostapd for Linux hotspot
-func enableLinuxHotspot(_, _ string) error {
-	// This would require hostapd and dnsmasq to be installed
+// enableLinuxHotspot uses hostapd and dnsmasq for Linux hotspot
+func enableLinuxHotspot(ssid, password string) error {
+	// Check if hostapd is installed
+	if _, err := exec.LookPath("hostapd"); err != nil {
+		return fmt.Errorf("hostapd not found - install it with: apt-get install hostapd dnsmasq")
+	}
+
+	// For Linux, we'll use nmcli if available (NetworkManager)
+	if _, err := exec.LookPath("nmcli"); err == nil {
+		cmd := exec.Command("nmcli", "device", "wifi", "hotspot", "on", fmt.Sprintf("ssid=%s", ssid), fmt.Sprintf("password=%s", password))
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to start hotspot via nmcli: %w", err)
+		}
+		return nil
+	}
+
+	// Fallback to hostapd
 	cmd := exec.Command("hostapd", "-D", "nl80211", "-i", "wlan0", "-c", "/etc/hostapd/hostapd.conf", "-B")
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to start hostapd: %w", err)
@@ -104,21 +120,52 @@ func enableLinuxHotspot(_, _ string) error {
 	return nil
 }
 
+// enableMacHotspot uses macOS native command for hotspot
+func enableMacHotspot(ssid, password string) error {
+	// macOS doesn't support programmatic WiFi hotspot easily
+	// We'll document this as a limitation
+	return fmt.Errorf("WiFi hotspot setup on macOS requires manual configuration.\n" +
+		"Please use System Preferences > Sharing > Internet Sharing.\n" +
+		"Or use: networksetup commands with proper permissions")
+}
+
 // DisableHotspot disables the Wi-Fi hotspot
 func DisableHotspot() error {
-	if runtime.GOOS == "windows" {
+	switch runtime.GOOS {
+	case "windows":
 		cmd := exec.Command("netsh", "wlan", "stop", "hostednetwork")
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("failed to stop hosted network: %w", err)
 		}
+		return nil
+	case "linux":
+		// Try nmcli first
+		if _, err := exec.LookPath("nmcli"); err == nil {
+			cmd := exec.Command("nmcli", "device", "wifi", "hotspot", "off")
+			if err := cmd.Run(); err != nil {
+				return fmt.Errorf("failed to stop hotspot via nmcli: %w", err)
+			}
+			return nil
+		}
+		// Fallback to pkill
+		cmd := exec.Command("pkill", "hostapd")
+		cmd.Run() // Ignore error
+		return nil
+	case "darwin":
+		return fmt.Errorf("WiFi hotspot on macOS requires manual shutdown via System Preferences")
+	default:
+		return fmt.Errorf("unsupported OS: %s", runtime.GOOS)
 	}
-	return nil
 }
 
 // GetConnectedDevices returns a list of devices connected to the network
 func GetConnectedDevices() ([]DeviceInfo, error) {
 	if runtime.GOOS == "windows" {
 		return getWindowsDevices()
+	} else if runtime.GOOS == "linux" {
+		return getLinuxDevices()
+	} else if runtime.GOOS == "darwin" {
+		return getMacDevices()
 	}
 	return nil, fmt.Errorf("device discovery not implemented for %s", runtime.GOOS)
 }
@@ -153,6 +200,61 @@ func getWindowsDevices() ([]DeviceInfo, error) {
 				Connected: true,
 			}
 			devices = append(devices, device)
+		}
+	}
+
+	return devices, nil
+}
+
+// getLinuxDevices retrieves connected devices on Linux using arp-scan or arp
+func getLinuxDevices() ([]DeviceInfo, error) {
+	var devices []DeviceInfo
+
+	// Try using 'arp' command first
+	cmd := exec.Command("arp", "-a")
+	output, err := cmd.Output()
+	if err != nil {
+		// Fallback: return empty list instead of error
+		return devices, nil
+	}
+
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		fields := strings.Fields(line)
+		if len(fields) >= 3 {
+			devices = append(devices, DeviceInfo{
+				Hostname: fields[0],
+				IP:       strings.Trim(fields[1], "()"),
+				MAC:      fields[2],
+			})
+		}
+	}
+
+	return devices, nil
+}
+
+// getMacDevices retrieves connected devices on macOS using arp
+func getMacDevices() ([]DeviceInfo, error) {
+	var devices []DeviceInfo
+
+	// macOS uses 'arp -a' similar to Linux
+	cmd := exec.Command("arp", "-a")
+	output, err := cmd.Output()
+	if err != nil {
+		return devices, nil
+	}
+
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		if strings.Contains(line, "at") {
+			fields := strings.Fields(line)
+			if len(fields) >= 4 {
+				devices = append(devices, DeviceInfo{
+					Hostname: fields[0],
+					IP:       strings.Trim(fields[1], "()"),
+					MAC:      fields[3],
+				})
+			}
 		}
 	}
 

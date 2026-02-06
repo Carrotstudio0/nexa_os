@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -177,7 +179,18 @@ func Start(nm *network.NetworkManager, gm *governance.GovernanceManager) {
 					dashboardProxy.ServeHTTP(w, r)
 					return
 				default:
-					// Dynamic DNS-based routing
+					// EXPERT ARCH: NEXA PROJECT HOSTING ENGINE
+					projectName := strings.TrimSuffix(host, ".n")
+					projectName = strings.TrimSuffix(projectName, ".nexa")
+
+					projectPath := filepath.Join("sites", projectName)
+					if info, err := os.Stat(projectPath); err == nil && info.IsDir() {
+						// Found a local project directory! Serve it as a static site.
+						http.StripPrefix("/", http.FileServer(http.Dir(projectPath))).ServeHTTP(w, r)
+						return
+					}
+
+					// Dynamic DNS-based routing (Reverse Proxy for services)
 					if rec, exists := dns.Resolve(host); exists {
 						target := fmt.Sprintf("http://%s:%d", rec.IP, rec.Port)
 						proxy, ok := dynamicProxies[target]
@@ -235,6 +248,22 @@ func Start(nm *network.NetworkManager, gm *governance.GovernanceManager) {
 	})
 	r.Route("/dashboard", func(r chi.Router) {
 		r.Handle("/*", http.StripPrefix("/dashboard", dashboardProxy))
+	})
+
+	// Project Preview Routes (Speed Access)
+	r.Route("/s", func(r chi.Router) {
+		r.Get("/{projectName}*", func(w http.ResponseWriter, r *http.Request) {
+			projectName := chi.URLParam(r, "projectName")
+			projectPath := filepath.Join("sites", projectName)
+
+			if info, err := os.Stat(projectPath); err == nil && info.IsDir() {
+				// Special handling for clean paths and index.html
+				fs := http.StripPrefix("/s/"+projectName, http.FileServer(http.Dir(projectPath)))
+				fs.ServeHTTP(w, r)
+				return
+			}
+			http.Error(w, "Project Not Found in NEXA Sites", 404)
+		})
 	})
 
 	// Root Gateway Page
@@ -422,12 +451,22 @@ func handleRegisterSite(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleGatewayHome(w http.ResponseWriter, r *http.Request) {
+	// Dynamically discover projects in sites folder
+	var projects []string
+	entries, _ := os.ReadDir("sites")
+	for _, entry := range entries {
+		if entry.IsDir() {
+			projects = append(projects, entry.Name())
+		}
+	}
+
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	data := map[string]interface{}{
 		"LocalIP":  utils.GetLocalIP(),
 		"Port":     GatewayPort,
 		"Uptime":   int(time.Since(startTime).Seconds()),
 		"Services": config.Services,
+		"Projects": projects,
 	}
 	tmpl, err := template.New("gateway").Parse(gatewayHTML)
 	if err != nil {
@@ -721,6 +760,24 @@ const gatewayHTML = `
                             <div class="btn-access">دخول النظام ←</div>
                         </div>
                     </a>
+                    {{end}}
+                </div>
+            </div>
+
+            <div class="services-section" style="margin-top: 40px;">
+                <h2>📁 مشاريعك المحلية المستضافة</h2>
+                <div class="services-grid">
+                    {{range .Projects}}
+                    <a href="/s/{{.}}" class="service-link">
+                        <div class="service-card" style="padding: 24px; background: rgba(255,255,255,0.03);">
+                            <div style="font-size: 0.7rem; color: var(--accent); margin-bottom: 5px;">PROJECT</div>
+                            <h3 style="font-size: 1.1rem;">{{.}}.n</h3>
+                            <p style="font-size: 0.85rem;">افتح الموقع ومعاينة التغييرات فوراً.</p>
+                            <div class="btn-access" style="padding: 8px 15px; font-size: 0.85rem; margin-top: 10px;">فتح الموقع</div>
+                        </div>
+                    </a>
+                    {{else}}
+                    <p style="color: var(--text-muted); text-align: center; width: 100%; padding: 20px;">لا توجد مشاريع في مجلد sites حالياً.</p>
                     {{end}}
                 </div>
             </div>

@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"strings"
@@ -105,23 +104,37 @@ func Start(nm *network.NetworkManager, gm *governance.GovernanceManager) {
 	certFile, keyFile := utils.FindCertFiles()
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
-		log.Fatalf("failed to load TLS certs: %v", err)
+		utils.LogWarning("DNS", fmt.Sprintf("TLS certificates not found: %v. Using plain TCP.", err))
+		// Fall back to plain TCP if TLS fails
+		ln, err := net.Listen("tcp", "0.0.0.0:"+config.DNSPort)
+		if err != nil {
+			utils.LogFatal("DNS", fmt.Sprintf("Failed to listen on port %s: %v", config.DNSPort, err))
+			return
+		}
+		defer ln.Close()
+		handleDNSListener(ln)
+		return
 	}
-	tlsConfig := &tls.Config{Certificates: []tls.Certificate{cert}}
 
+	tlsConfig := &tls.Config{Certificates: []tls.Certificate{cert}}
 	ln, err := tls.Listen("tcp", "0.0.0.0:"+config.DNSPort, tlsConfig)
 	if err != nil {
-		panic(err)
+		utils.LogFatal("DNS", fmt.Sprintf("Failed to listen on port %s (TLS): %v", config.DNSPort, err))
+		return
 	}
-	// Removing defer ln.Close() as it should keep running. Actually defer is fine if it wraps the loop.
+	defer ln.Close()
+	handleDNSListener(ln)
+}
 
-	utils.LogInfo("DNS", fmt.Sprintf("Listening Port:    %s (TLS)", config.DNSPort))
-	utils.SaveEndpoint("dns", fmt.Sprintf("tls://%s:%s", utils.GetLocalIP(), config.DNSPort))
+// handleDNSListener accepts and processes DNS connections
+func handleDNSListener(ln net.Listener) {
+	utils.LogInfo("DNS", fmt.Sprintf("Listening Port:    %s", config.DNSPort))
+	utils.SaveEndpoint("dns", fmt.Sprintf("tcp://%s:%s", utils.GetLocalIP(), config.DNSPort))
 
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			log.Println("Accept error:", err)
+			utils.LogWarning("DNS", fmt.Sprintf("Connection error: %v", err))
 			continue
 		}
 		go handleDNS(conn)
@@ -136,6 +149,14 @@ func Resolve(name string) (*nexa.DNSRecord, bool) {
 	registry.mu.RLock()
 	defer registry.mu.RUnlock()
 	rec, exists := registry.Records[name]
+
+	// EXPERT ARCH: Wildcard .n resolution
+	if !exists && (strings.HasSuffix(name, ".n") || strings.HasSuffix(name, ".nexa")) {
+		return &nexa.DNSRecord{
+			Name: name, IP: utils.GetLocalIP(), Port: 8000, Service: "gateway",
+		}, true
+	}
+
 	return rec, exists
 }
 

@@ -1,10 +1,11 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
 
@@ -17,125 +18,111 @@ import (
 	"github.com/MultiX0/nexa/pkg/services/gateway"
 	"github.com/MultiX0/nexa/pkg/services/server"
 	"github.com/MultiX0/nexa/pkg/services/storage"
+	"github.com/MultiX0/nexa/pkg/services/web"
 	"github.com/MultiX0/nexa/pkg/utils"
 )
 
-func main() {
-	utils.PrintBanner("NEXA ULTIMATE CORE", "v3.1")
-	fmt.Println("\n[SYSTEM] Initializing Unified Service Matrix...")
+type Service struct {
+	Name    string
+	Running bool
+	Cancel  context.CancelFunc
+	Start   func(*network.NetworkManager, *governance.GovernanceManager)
+}
 
-	// --- Network Intelligence Layer Initialization ---
-	utils.LogInfo("Network", "Initializing Knowledge Graph...")
+func main() {
+	// Silence noise for professional output
+	os.Setenv("PORT_SERVER", "1413")
+	os.Setenv("PORT_DNS", "1112")
+	os.Setenv("PORT_WEB", "8080")
+
+	utils.PrintBanner("NEXA ULTIMATE", "v4.0.0-PRO")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	_ = ctx
+	defer cancel()
+
+	// --- System Infrastructure ---
+	utils.LogInfo("Nucleus", "Hypervising System Matrix...")
 	localIP := utils.GetLocalIP()
 
-	netConfig := network.ConnectionConfig{
-		Timeout:           5 * time.Second,
-		MaxRetries:        3,
-		HeartbeatInterval: 10 * time.Second,
+	nm := network.NewNetworkManager(network.ConnectionConfig{
+		Timeout:           10 * time.Second,
+		MaxRetries:        5,
+		HeartbeatInterval: 15 * time.Second,
 		ConnectionType:    network.ConnectionWiFi,
-	}
-	nm := network.NewNetworkManager(netConfig)
+	})
 
-	// 1. Register Primary Base (The Host)
-	base, err := nm.RegisterPrimaryBase("base-core", "Nexa Core", "00:00:00:00:00:00", localIP, 7000)
+	// Register Core Nodes
+	base, err := nm.RegisterPrimaryBase("base-core", "Nexa Nucleus Core", "00:00:00:00:00:00", localIP, 7000)
 	if err == nil {
 		base.IsOnline = true
 		base.UpdateOnlineStatus(true)
 	}
 
-	// 2. Register Service Nodes (Logical Representation)
-	servicesList := []struct {
-		id, name string
-		port     int
+	gm := governance.NewGovernanceManager(governance.NewPolicyEngine("policy.json"), nm)
+	gm.Start(5 * time.Second)
+
+	// --- Integrated Module Matrix ---
+	services := []struct {
+		ID, Name string
+		Port     int
+		StartFn  func(*network.NetworkManager, *governance.GovernanceManager)
 	}{
-		{"svc-gateway", "Gateway Node", 8000},
-		{"svc-chat", "Quantum Chat", 8082},
-		{"svc-storage", "Digital Storage", 8081},
-		{"svc-dns", "DNS Authority", 53},
-		{"svc-admin", "Admin Panel", 8080},
+		{"svc-dns", "DNS Authority", 53, dns.Start},
+		{"svc-gateway", "Matrix Gateway", 8000, gateway.Start},
+		{"svc-admin", "Admin Center", 8080, admin.Start},
+		{"svc-storage", "Digital Vault", 8081, storage.Start},
+		{"svc-chat", "Matrix Chat", 8082, chat.Start},
+		{"svc-dashboard", "Intelligence Hub", 7000, dashboard.Start},
+		{"svc-web", "Web Elite", 3000, web.Start},
+		{"svc-core", "Core Nucleus", 1413, server.Start},
 	}
 
-	for _, s := range servicesList {
-		node, err := nm.RegisterDevice(s.id, s.name, "", localIP, s.port, network.RoleGateway) // Using Gateway role for services for visibility
+	utils.LogInfo("Matrix", fmt.Sprintf("Synchronizing %d integrated modules...", len(services)))
+
+	for _, s := range services {
+		node, err := nm.RegisterDevice(s.ID, s.Name, "", localIP, s.Port, network.RoleGateway)
 		if err == nil {
 			node.IsOnline = true
 			node.UpdateOnlineStatus(true)
 			nm.CreateConnection(base.ID, node.ID, network.ConnectionMesh)
 		}
+
+		go func(name string, startFn func(*network.NetworkManager, *governance.GovernanceManager)) {
+			defer func() {
+				if r := recover(); r != nil {
+					utils.LogError("Supervisor", "Critical failure in "+name, fmt.Errorf("%v", r))
+				}
+			}()
+			startFn(nm, gm)
+		}(s.Name, s.StartFn)
+
+		utils.LogSuccess("Module", "Synchronized: "+s.Name)
+		time.Sleep(150 * time.Millisecond)
 	}
 
-	// 3. Initialize Governance Layer
-	utils.LogInfo("System", "Establishing System Constitution...")
-	pe := governance.NewPolicyEngine("policy.json")
-	gm := governance.NewGovernanceManager(pe, nm)
-	gm.Start(5 * time.Second) // Check every 5s
-	// --------------------------------------------------
+	dashboardURL := fmt.Sprintf("http://%s:7000", localIP)
+	utils.LogSuccess("System", "Matrix is fully operational.")
 
-	var wg sync.WaitGroup
+	fmt.Printf("\n  %s╔══════════════════════════════════════════════════════════════╗%s\n", utils.ColorCyan, utils.ColorReset)
+	fmt.Printf("  %s║%s  🌐 INTELLIGENCE HUB:  %s        %s║%s\n", utils.ColorCyan, utils.ColorWhite+utils.ColorBold, dashboardURL, utils.ColorReset, utils.ColorCyan)
+	fmt.Printf("  %s║%s  🚪 MATRIX GATEWAY:    http://%s:8000        %s║%s\n", utils.ColorCyan, utils.ColorWhite+utils.ColorBold, localIP, utils.ColorReset, utils.ColorCyan)
+	fmt.Printf("  %s╚══════════════════════════════════════════════════════════════╝%s\n\n", utils.ColorCyan, utils.ColorReset)
 
-	// Start standard services
-	standardServices := []struct {
-		Name  string
-		Start func(*network.NetworkManager, *governance.GovernanceManager)
-	}{
-		{"Core Server", server.Start},
-		{"DNS Authority", dns.Start},
-		{"Admin Panel", admin.Start},
-	}
-
-	for _, s := range standardServices {
-		wg.Add(1)
-		go func(name string, startFunc func(*network.NetworkManager, *governance.GovernanceManager)) {
-			defer wg.Done()
-			utils.LogInfo("Matrix", "Launching "+name+"...")
-			startFunc(nm, gm)
-		}(s.Name, s.Start)
-	}
-
-	// Start Services with Network Intelligence
-	wg.Add(1)
+	// PRO TOUCH: Automate Intelligence Hub launch
+	utils.LogInfo("Sync", "Deploying UI to local workspace...")
 	go func() {
-		defer wg.Done()
-		utils.LogInfo("Matrix", "Launching Network Gateway...")
-		gateway.Start(nm, gm)
+		time.Sleep(2 * time.Second)
+		// Using localhost for guaranteed local access regardless of IP stability
+		localDashboard := "http://localhost:7000"
+		exec.Command("cmd", "/c", "start", localDashboard).Start()
 	}()
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		utils.LogInfo("Matrix", "Launching Quantum Chat...")
-		chat.Start(nm, gm)
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		utils.LogInfo("Matrix", "Launching Digital Storage...")
-		storage.Start(nm, gm)
-	}()
-
-	// Start Dashboard with Network Manager
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		utils.LogInfo("Matrix", "Launching System Dashboard...")
-		dashboard.Start(nm, gm)
-	}()
-
-	utils.LogSuccess("System", "ALL SERVICES OPERATIONAL")
-
-	fmt.Printf("\n  +--------------------------------------------------+\n")
-	fmt.Printf("  |  🌐 UNIFIED HUB: http://%s:7000        |\n", localIP)
-	fmt.Printf("  |  🚪 GATEWAY:     http://%s:8000        |\n", localIP)
-	fmt.Printf("  +--------------------------------------------------+\n\n")
-
-	// Wait for interrupt
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
-
-	utils.LogInfo("System", "Nexa Intelligence Layer Active. Press Ctrl+C to shutdown.")
 	<-stop
 
-	fmt.Println("\n[SYSTEM] Graceful shutdown initiated...")
+	utils.LogWarning("System", "De-synchronizing Matrix logic...")
+	fmt.Println("\n[SYSTEM] Nexa Ultimate offline.")
 	os.Exit(0)
 }

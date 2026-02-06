@@ -5,12 +5,24 @@ import (
 	"net"
 )
 
-// GetLocalIP returns the primary local IP address
+// GetLocalIP returns the primary local IP address, preferring 192.168.x.x
 func GetLocalIP() string {
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
 		return "127.0.0.1"
 	}
+
+	// First pass: look for 192.168 addresses (standard WiFi/Ethernet)
+	for _, addr := range addrs {
+		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			ip := ipnet.IP.To4()
+			if ip != nil && ip[0] == 192 && ip[1] == 168 {
+				return ip.String()
+			}
+		}
+	}
+
+	// Second pass: return any valid IPv4
 	for _, addr := range addrs {
 		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
 			if ipnet.IP.To4() != nil {

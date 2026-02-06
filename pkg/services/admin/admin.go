@@ -105,7 +105,11 @@ func dashboardHandler(w http.ResponseWriter, r *http.Request) {
 		"SystemStatus": "OPERATIONAL",
 	}
 
-	tmpl := template.Must(template.New("layout").Parse(LayoutHTML))
+	tmpl, err := template.ParseFS(uiFiles, "ui/layout.html")
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
 	tmpl.Execute(w, data)
 }
 
@@ -122,11 +126,11 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		tmpl := template.Must(template.New("login").Parse(LoginHTML))
+		tmpl, _ := template.ParseFS(uiFiles, "ui/login.html")
 		tmpl.Execute(w, map[string]string{"Error": "بيانات الدخول غير صحيحة"})
 		return
 	}
-	tmpl := template.Must(template.New("login").Parse(LoginHTML))
+	tmpl, _ := template.ParseFS(uiFiles, "ui/login.html")
 	tmpl.Execute(w, nil)
 }
 

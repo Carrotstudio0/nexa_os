@@ -1,0 +1,16 @@
+{
+  "chain": [
+    {
+      "index": 0,
+      "timestamp": "2026-02-06T02:28:26+02:00",
+      "key": "genesis",
+      "value": "Nexa Protocol Genesis Block",
+      "previous_hash": "",
+      "hash": "628b871f151e75168e4b8e7966cd7ea6c6e5919dfcd289e4972ed29e1314f682",
+      "validator": "SYSTEM"
+    }
+  ],
+  "data": {
+    "genesis": "Nexa Protocol Genesis Block"
+  }
+}

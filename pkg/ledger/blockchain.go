@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"sync"
 	"time"
@@ -27,6 +28,7 @@ type Blockchain struct {
 	Chain    []Block           `json:"chain"`
 	Data     map[string]string `json:"data"` // Quick lookup
 	Filename string            `json:"-"`
+	saveCh   chan bool         `json:"-"` // Channel for periodic saves
 }
 
 // NewBlockchain initializes the ledger
@@ -35,23 +37,31 @@ func NewBlockchain(filename string) (*Blockchain, error) {
 		Chain:    []Block{},
 		Data:     make(map[string]string),
 		Filename: filename,
+		saveCh:   make(chan bool, 1),
 	}
 
 	// Load from disk
 	if _, err := os.Stat(filename); err == nil {
 		content, err := os.ReadFile(filename)
 		if err == nil {
-			json.Unmarshal(content, bc)
-			// Rebuild Data map
-			for _, b := range bc.Chain {
-				bc.Data[b.Key] = b.Value
+			if err := json.Unmarshal(content, bc); err == nil {
+				// Rebuild Data map
+				for _, b := range bc.Chain {
+					bc.Data[b.Key] = b.Value
+				}
+				// Start periodic saving
+				go bc.startPeriodicSave()
+				return bc, nil
 			}
-			return bc, nil
 		}
 	}
 
 	// Genesis Block
 	bc.AddBlock("genesis", "Nexa Protocol Genesis Block", "SYSTEM")
+
+	// Start periodic saving
+	go bc.startPeriodicSave()
+
 	return bc, nil
 }
 
@@ -117,7 +127,27 @@ func (bc *Blockchain) IsChainValid() bool {
 	return true
 }
 
-func (bc *Blockchain) save() {
-	data, _ := json.MarshalIndent(bc, "", "  ")
-	os.WriteFile(bc.Filename, data, 0644)
+func (bc *Blockchain) save() error {
+	data, err := json.MarshalIndent(bc, "", "  ")
+	if err != nil {
+		log.Printf("ERROR: Failed to marshal blockchain: %v", err)
+		return err
+	}
+	if err := os.WriteFile(bc.Filename, data, 0644); err != nil {
+		log.Printf("ERROR: Failed to save blockchain to %s: %v", bc.Filename, err)
+		return err
+	}
+	return nil
+}
+
+// startPeriodicSave saves blockchain periodically (every 30 seconds)
+func (bc *Blockchain) startPeriodicSave() {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		if err := bc.save(); err != nil {
+			log.Printf("WARNING: Periodic save failed: %v", err)
+		}
+	}
 }

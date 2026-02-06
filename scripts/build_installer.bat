@@ -27,25 +27,22 @@ echo.
 echo [2/3] Searching for Inno Setup (ISCC.exe)...
 echo --------------------------------------------------
 
-set "ISCC_PATH="
-:: محاولة إيجاد المسار يدوياً
-if exist "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" (
-    set "ISCC_PATH=C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
-) else if exist "C:\Program Files\Inno Setup 6\ISCC.exe" (
-    set "ISCC_PATH=C:\Program Files\Inno Setup 6\ISCC.exe"
-) else (
-    :: البحث في الـ PATH كخيار أخير
-    for /f "tokens=*" %%i in ('where iscc.exe 2^>nul') do set "ISCC_PATH=%%i"
+set "ISCC_PATH=C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+if exist "%ISCC_PATH%" goto found_iscc
+set "ISCC_PATH=C:\Program Files\Inno Setup 6\ISCC.exe"
+if exist "%ISCC_PATH%" goto found_iscc
+for /f "tokens=*" %%i in ('where iscc.exe 2^>nul') do (
+    set "ISCC_PATH=%%i"
+    goto found_iscc
 )
 
-if "!ISCC_PATH!"=="" (
-    echo [!] ERROR: Inno Setup (ISCC.exe) not found.
-    echo [!] Please make sure Inno Setup is installed.
-    pause
-    exit /b 1
-)
+echo [!] ERROR: Inno Setup (ISCC.exe) not found.
+echo [!] Please install Inno Setup 6 or add ISCC.exe to your PATH.
+pause
+exit /b 1
 
-echo [+] Found Compiler at: !ISCC_PATH!
+:found_iscc
+echo [+] Found Compiler at: %ISCC_PATH%
 
 echo.
 echo [3/3] Creating Windows Installer...
@@ -59,7 +56,7 @@ if %errorlevel% equ 0 (
     echo.
     echo ==================================================
     echo ✅ SUCCESS: Installer created!
-    echo 📂 Path: \installer_output\Nexa_Setup_v3.1.exe
+    echo 📂 Path: installer_output\Nexa_Ultimate_v4.0.0_Setup.exe
     echo ==================================================
     explorer "installer_output"
 ) else (

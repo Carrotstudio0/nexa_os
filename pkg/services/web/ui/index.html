@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEXA - Web Dashboard</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Cairo:wght@400;600;700;900&display=swap"
+        rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --secondary: #ec4899;
+            --accent: #06b6d4;
+            --bg: #020617;
+            --card-bg: rgba(15, 23, 42, 0.6);
+            --glass: rgba(255, 255, 255, 0.03);
+            --border: rgba(255, 255, 255, 0.08);
+            --text: #f8fafc;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Outfit', 'Cairo', sans-serif;
+            background: var(--bg);
+            background-image:
+                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.1) 0, transparent 40%),
+                radial-gradient(at 100% 100%, rgba(236, 72, 153, 0.1) 0, transparent 40%);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            padding: 60px 40px;
+            border-radius: 40px;
+            border: 1px solid var(--border);
+            text-align: center;
+            animation: slideIn 0.8s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        h1 {
+            font-size: 3rem;
+            font-weight: 900;
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 20px;
+        }
+
+        .status {
+            font-size: 1.2rem;
+            color: #10b981;
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .status::before {
+            content: '';
+            width: 12px;
+            height: 12px;
+            background: #10b981;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .nav-links {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 40px;
+        }
+
+        a {
+            padding: 15px 25px;
+            border-radius: 15px;
+            text-decoration: none;
+            color: white;
+            background: var(--glass);
+            border: 1px solid var(--border);
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+
+        a:hover {
+            background: var(--primary);
+            border-color: var(--primary);
+            transform: translateY(-2px);
+        }
+
+        .info {
+            margin-top: 40px;
+            font-size: 0.9rem;
+            color: #94a3b8;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🌐 NEXA Web Elite</h1>
+        <div class="status">System Matrix v4.0.0-PRO - Online</div>
+        <p style="font-size: 1.1rem; margin-bottom: 30px;">Web Service is running successfully</p>
+
+        <div class="nav-links">
+            <a href="http://localhost:7000" target="_blank">
+                <i class="fas fa-chart-line"></i> Dashboard
+            </a>
+            <a href="http://localhost:8000" target="_blank">
+                <i class="fas fa-database"></i> Gateway
+            </a>
+            <a href="http://localhost:8080" target="_blank">
+                <i class="fas fa-sliders-h"></i> Admin
+            </a>
+            <a href="http://localhost:8081" target="_blank">
+                <i class="fas fa-hdd"></i> Storage
+            </a>
+            <a href="http://localhost:8082" target="_blank">
+                <i class="fas fa-comments"></i> Chat
+            </a>
+            <a href="http://localhost:1112" target="_blank">
+                <i class="fas fa-server"></i> DNS
+            </a>
+        </div>
+
+        <div class="info">
+            <p>✅ System Status: Fully Operational</p>
+            <p>📡 Connected to Core Network</p>
+        </div>
+    </div>
+</body>
+
+</html>

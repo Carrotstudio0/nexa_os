@@ -1,7 +1,7 @@
 @echo off
 setlocal enabledelayedexpansion
 chcp 65001 >nul
-title "NEXA ULTIMATE | Command Center v3.1"
+title "NEXA ULTIMATE v3.1 - Unified Core Command Center"
 
 :: Admin Check
 net session >nul 2>&1
@@ -26,88 +26,106 @@ echo.
 echo %CYN%    _   _______  _____     __  ____  __________ 
 echo %CYN%   / \ / /  __/ /_  _/    / / / / / /_  __/ __ \
 echo %CYN%  /   / /  __/   / /     / /_/ / /   / / / /_/ /
-echo %CYN% /_/ \_/\___/   /_/      \____/_/   /_/  \____/  %GRA%v3.1%RST%
+echo %CYN% /_/ \_/\___/   /_/      \____/_/   /_/  \____/  %GRA%v3.1 - Unified%RST%
 echo.
 
-cd /d "%~dp0"
+cd /d "%~dp0.."
 
 :: --- Network Layer Configuration ---
-set "HOTSPOT=N"
-echo %CYN%[NETWORK]%RST% %GRA%Configuring connection layer...%RST%
-set /p HOTSPOT="%YLW%[?] Activate WiFi hotspot matrix? (Y/N): %RST%"
 
-if /i "!HOTSPOT!" neq "Y" goto :START_MATRIX
+REM --- Hotspot is disabled by default for التشغيل التلقائي. لتفعيل الهوتسبوت تلقائياً غيّر السطر التالي إلى Y ---
+set "HOTSPOT=N"
+REM --- إذا أردت تفعيل الهوتسبوت تلقائياً، غيّر السطر أعلاه إلى Y ---
+if /i "!HOTSPOT!" neq "Y" goto :START_CORE
 
 echo.
 echo %CYN%[HOTSPOT]%RST% %GRA%Initializing wireless transmission...%RST%
 
-set "SCRIPT_FOUND=N"
-set "SCRIPT_PATH="
-
-:: Try different relative paths
-if exist "..\scripts\enable-hotspot.ps1" (
-    set "SCRIPT_PATH=..\scripts\enable-hotspot.ps1"
-    set "SCRIPT_FOUND=Y"
-) else if exist "scripts\enable-hotspot.ps1" (
-    set "SCRIPT_PATH=scripts\enable-hotspot.ps1"
-    set "SCRIPT_FOUND=Y"
-)
-
-if "!SCRIPT_FOUND!"=="Y" (
-    powershell -ExecutionPolicy Bypass -File "!SCRIPT_PATH!"
+if exist "scripts\enable-hotspot.ps1" (
+    powershell -ExecutionPolicy Bypass -File "scripts\enable-hotspot.ps1"
     if !errorlevel! equ 0 (
-        echo   %GRN%✓ Hotspot Layer Enabled%RST%
+        echo   %GRN%✓ WiFi Hotspot Enabled%RST%
     ) else (
-        echo   %RED%✖ Hotspot initialization failed. Continuing with local network.%RST%
-        pause
+        echo   %RED%✖ Hotspot setup failed (continuing with local network)%RST%
+        timeout /t 2 >nul
     )
 ) else (
-    echo   %RED%✖ Hotspot scripts not found in \scripts%RST%
-    echo   %GRA%Ensure the 'scripts' folder exists in the installation directory.%RST%
-    pause
+    echo   %RED%✖ Hotspot script not found in scripts\%RST%
+    echo   %GRA%Continuing without hotspot...%RST%
+    timeout /t 2 >nul
 )
 echo.
 
 
-:START_MATRIX
+:START_CORE
 :: --- Unified Service Matrix Initialization ---
-echo %CYN%[MATRIX]%RST% %GRA%Launching Unified Nexa Core...%RST%
-
-if exist nexa.exe (
-    echo   %GRN%✓%RST% Starting Nexa Multi-Service Engine
-    :: We run it in a new window but just ONE window
-    start "NEXA ULTIMATE | CORE" nexa.exe
-) else (
-    echo   %RED%✖ nexa.exe missing - please run BUILD.bat%RST%
-    pause
-    exit /b
-)
-
+echo %CYN%[CORE]%RST% %GRN%Launching Unified Nexa System...%RST%
 echo.
 
- :: Get Local IP for display
+REM --- Build automatically if nexa.exe missing ---
+if not exist "bin\nexa.exe" (
+    echo   %YLW%[!] bin\nexa.exe not found. Compiling automatically...%RST%
+    cd /d "%~dp0.."
+    call scripts\build.bat
+    cd /d "%~dp0"
+)
+
+cd /d "%~dp0.."
+start "NEXA ULTIMATE v3.1 - CORE" bin\nexa.exe
+
+:: Get Local IP for display
 for /f "tokens=4 delims= " %%i in ('route print ^| findstr 0.0.0.0 ^| findstr /V "127.0.0.1" ^| findstr /V "::"') do set "MY_IP=%%i"
 if "!MY_IP!"=="" set "MY_IP=localhost"
 
-echo   %GRA%══════════════════════════════════════════════════════════%RST%
-echo   %GRN%  SYSTEM FULLY OPERATIONAL%RST%
-echo.
-echo   %GRA%  🌐 Dashboard  : %RST%%CYN%http://!MY_IP!:7000%RST%
-echo   %GRA%  🚪 Gateway    : %RST%%CYN%http://!MY_IP!:8000%RST%
-echo.
+:: Wait for services to start
+timeout /t 3 >nul
 
-:: Open Dashboard
+cls
+echo.
+echo %CYN%╔═══════════════════════════════════════════════════════════╗%RST%
+echo %CYN%║         NEXA SYSTEM FULLY OPERATIONAL                    ║%RST%
+echo %CYN%╚═══════════════════════════════════════════════════════════╝%RST%
+echo.
+echo %GRA%Primary Services Online:%RST%
+echo.
+echo   %GRN%✓%RST% %CYN%Dashboard  %RST%%GRA%: %RST%%CYN%http://!MY_IP!:7000%RST%   %GRA%(Main Hub)%RST%
+echo   %GRN%✓%RST% %CYN%Gateway    %RST%%GRA%: %RST%%CYN%http://!MY_IP!:8000%RST%   %GRA%(Routing)%RST%
+echo   %GRN%✓%RST% %CYN%Admin Panel%RST%%GRA%: %RST%%CYN%http://!MY_IP!:8080%RST%   %GRA%(Management)%RST%
+echo.
+echo %GRA%Storage ^& Communication:%RST%
+echo.
+echo   %GRN%✓%RST% %CYN%Storage    %RST%%GRA%: %RST%%CYN%http://!MY_IP!:8081%RST%   %GRA%(Files + Vault)%RST%
+echo   %GRN%✓%RST% %CYN%Chat       %RST%%GRA%: %RST%%CYN%http://!MY_IP!:8082%RST%   %GRA%(Messaging)%RST%
+echo   %GRN%✓%RST% %CYN%Web        %RST%%GRA%: %RST%%CYN%http://!MY_IP!:3000%RST%   %GRA%(New Service)%RST%
+echo.
+echo %GRA%Backend Services:%RST%
+echo.
+echo   %GRN%✓%RST% %CYN%Core Server%RST%%GRA%: %RST%%CYN%localhost:1413%RST%  %GRA%(Ledger + Blockchain)%RST%
+echo   %GRN%✓%RST% %CYN%DNS Server %RST%%GRA%: %RST%%CYN%localhost:1112%RST%  %GRA%(Name Resolution)%RST%
+echo.
+echo %GRA%══════════════════════════════════════════════════════════%RST%
+echo.
+REM --- Open browser automatically to Dashboard ---
+echo %YLW%[INFO]%RST% Browser opening to Dashboard. Keep this window open.
 timeout /t 2 >nul
-start http://localhost:7000
+start "" http://!MY_IP!:7000
+echo %YLW%[INFO]%RST% All 8 services running in unified nexa.exe process.
+echo.
+echo %RED%Press Ctrl+C to shutdown all services safely.%RST%
+echo %RED%Or close this window to terminate the system.%RST%
+echo.
 
-echo %RED%  [WARNING] Keep this window open - it supervises all matrix services.%RST%
-echo %GRA%  Press any key to execute full shutdown sequence...%RST%
-pause >nul
+:: Keep window open - monitor the core process
+:MONITOR
+timeout /t 5 >nul
+tasklist /FI "IMAGENAME eq nexa.exe" 2>NUL | find /I /N "nexa.exe">NUL
+if %ERRORLEVEL% == 0 (
+    goto MONITOR
+) else (
+    echo %GRA%[NOTICE] Core process ended.%RST%
+)
 
 echo.
-echo %MAG%[SHUTDOWN] Terminating active Matrix Core...%RST%
-taskkill /F /IM nexa.exe >nul 2>&1
-
-echo %GRN%[DONE] All systems safe and offline.%RST%
+echo %GRA%[SHUTDOWN] System offline.%RST%
 timeout /t 2 >nul
 exit /b
