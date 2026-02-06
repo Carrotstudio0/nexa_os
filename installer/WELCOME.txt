@@ -1,0 +1,17 @@
+WELCOME TO NEXA OS ULTIMATE v4.0.0-PRO
+
+This installer will guide you through the process of deploying the unified Nexa OS environment.
+
+KEY FEATURES IN THIS VERSION:
+- Unified Gateway & Admin Console
+- Nexa Intelligence Hub (Dashboard)
+- Smart DNS & Dynamic Routing
+- Local Storage & Mesh Networking
+- Advanced Firewall Preparation
+
+System Requirements:
+- Windows 10/11 (x64)
+- Administrative Privileges
+- 500MB Free Disk Space
+
+Please ensure all previous versions of Nexa are closed before proceeding.

@@ -47,7 +47,8 @@ func getEnv(key, fallback string) string {
 
 // Global System Configuration (Legacy support during migration)
 const (
-	GatewayPort   = "8000"
+	GatewayPort   = "80"   // High Pro: Native port for .n domains
+	GatewayBackup = "8000" // Fallback if 80 is busy
 	AdminPort     = "8080"
 	WebPort       = "8083"
 	StoragePort   = "8081"

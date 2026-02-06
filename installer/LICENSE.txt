@@ -1,0 +1,18 @@
+NEXA OS ULTIMATE EDITION - END USER LICENSE AGREEMENT (EULA)
+
+1. PROPRIETARY RIGHTS:
+Nexa OS is a product of Nexa Intelligence Systems. All rights reserved.
+
+2. USAGE:
+By installing this software, you agree to use it for lawful purposes and in accordance with the professional guidelines of your organization.
+
+3. NO WARRANTY:
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED.
+
+4. LIMITATION OF LIABILITY:
+NEXA SYSTEMS SHALL NOT BE LIABLE FOR ANY DAMAGES ARISING OUT OF THE USE OR INABILITY TO USE THE SOFTWARE.
+
+5. DATA PRIVACY:
+Nexa OS is designed for local-first operations. Your data remains on your infrastructure unless explicitly configured otherwise.
+
+(C) 2026 Nexa Intelligence Systems.

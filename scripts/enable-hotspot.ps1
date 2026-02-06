@@ -1,8 +1,8 @@
 # Nexa Ultimate WiFi Genesis Script v4.1 - Enhanced Stability
 # Optimized for Windows 10/11 with improved error handling
 
-$SSID = "NEXA_ULTIMATE_v3.1"
-$Password = "nexa123456"
+$SSID = "NEXA_PRO_MATRIX"
+$Password = "nexa_ultimate_2026"
 
 Write-Host " "
 Write-Host " [NEXA] Initializing Wireless Matrix Broadcast..." -ForegroundColor Cyan

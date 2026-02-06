@@ -30,6 +30,25 @@ type Service struct {
 }
 
 func main() {
+	// MATRIX PRO: Auto-deploy Wireless Matrix (Hotspot)
+	utils.LogInfo("Nucleus", "Deploying Wireless Matrix Pulse...")
+	go func() {
+		// Run hotspot script as a separate process
+		exec.Command("powershell", "-ExecutionPolicy", "Bypass", "-File", "./scripts/enable-hotspot.ps1").Start()
+	}()
+
+	// MATRIX PRO: Secure Gateway & Firewall Orchestration
+	utils.SetupFirewallRules()
+
+	// Print Professional Mobile Connectivity Banner
+	fmt.Println("\n   \033[36m╔══════════════════════════════════════════════════════════════╗\033[0m")
+	fmt.Printf("   \033[36m║\033[37m [1m  📱 MOBILE ACCESS:   http://%s           \033[0m\033[36m║\n", utils.GetLocalIP())
+	fmt.Printf("   \033[36m║\033[37m [1m  🌐 PROFESSIONAL:    http://hub.n                  \033[0m\033[36m║\n")
+	fmt.Println("   \033[36m╚══════════════════════════════════════════════════════════════╝\033[0m\n")
+
+	utils.UpdateHostsFile("demo.n", "127.0.0.1")
+	utils.UpdateHostsFile("admin.n", "127.0.0.1")
+
 	// Silence noise for professional output
 	os.Setenv("PORT_SERVER", "1413")
 	os.Setenv("PORT_DNS", "1112")

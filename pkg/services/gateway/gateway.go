@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -20,10 +21,6 @@ import (
 	"github.com/MultiX0/nexa/pkg/utils"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-)
-
-var (
-	dynamicProxies = make(map[string]*httputil.ReverseProxy)
 )
 
 const (
@@ -164,46 +161,36 @@ func Start(nm *network.NetworkManager, gm *governance.GovernanceManager) {
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			host := strings.ToLower(strings.Split(r.Host, ":")[0])
-			if strings.HasSuffix(host, ".n") || strings.HasSuffix(host, ".nexa") {
+
+			// Universal Domain Matcher: Support .n, .lvh.me, and Magic IP Patterns
+			isMagicDomain := strings.HasSuffix(host, ".n") ||
+				strings.HasSuffix(host, ".nexa") ||
+				strings.HasSuffix(host, ".lvh.me") ||
+				strings.Contains(host, ".sslip.io") ||
+				strings.Contains(host, ".nip.io")
+
+			if isMagicDomain {
+				// Extract primary subdomain (e.g., hub from hub.192.168.1.3.ssl
+				subdomain := strings.Split(host, ".")[0]
 				switch {
-				case host == "share.n" || host == "share.nexa" || host == "storage.n":
-					webProxy.ServeHTTP(w, r)
-					return
-				case host == "admin.n" || host == "admin.nexa":
+				case subdomain == "admin":
 					adminProxy.ServeHTTP(w, r)
 					return
-				case host == "chat.n" || host == "chat.nexa":
-					chatProxy.ServeHTTP(w, r)
-					return
-				case host == "dash.n" || host == "dash.nexa" || host == "dashboard.n":
+				case subdomain == "hub" || subdomain == "dashboard" || host == "nexa.local":
 					dashboardProxy.ServeHTTP(w, r)
 					return
+				case subdomain == "vault" || subdomain == "storage":
+					webProxy.ServeHTTP(w, r)
+					return
+				case subdomain == "chat":
+					chatProxy.ServeHTTP(w, r)
+					return
 				default:
-					// EXPERT ARCH: NEXA PROJECT HOSTING ENGINE
-					projectName := strings.TrimSuffix(host, ".n")
-					projectName = strings.TrimSuffix(projectName, ".nexa")
-
+					// UNIVERSAL NEXA PROJECT HOSTING
+					projectName := subdomain
 					projectPath := filepath.Join("sites", projectName)
 					if info, err := os.Stat(projectPath); err == nil && info.IsDir() {
-						// Found a local project directory! Serve it as a static site.
 						http.StripPrefix("/", http.FileServer(http.Dir(projectPath))).ServeHTTP(w, r)
-						return
-					}
-
-					// Dynamic DNS-based routing (Reverse Proxy for services)
-					if rec, exists := dns.Resolve(host); exists {
-						target := fmt.Sprintf("http://%s:%d", rec.IP, rec.Port)
-						proxy, ok := dynamicProxies[target]
-						if !ok {
-							u, _ := url.Parse(target)
-							proxy = httputil.NewSingleHostReverseProxy(u)
-							proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
-								utils.LogError("Gateway", fmt.Sprintf("Dynamic Proxy error to %s", host), err)
-								http.Error(w, "Service Unavailable (Internal Node)", http.StatusServiceUnavailable)
-							}
-							dynamicProxies[target] = proxy
-						}
-						proxy.ServeHTTP(w, r)
 						return
 					}
 				}
@@ -237,18 +224,10 @@ func Start(nm *network.NetworkManager, gm *governance.GovernanceManager) {
 	})
 
 	// Service Proxies
-	r.Route("/admin", func(r chi.Router) {
-		r.Handle("/*", http.StripPrefix("/admin", adminProxy))
-	})
-	r.Route("/storage", func(r chi.Router) {
-		r.Handle("/*", http.StripPrefix("/storage", webProxy))
-	})
-	r.Route("/chat", func(r chi.Router) {
-		r.Handle("/*", http.StripPrefix("/chat", chatProxy))
-	})
-	r.Route("/dashboard", func(r chi.Router) {
-		r.Handle("/*", http.StripPrefix("/dashboard", dashboardProxy))
-	})
+	r.Mount("/admin", http.StripPrefix("/admin", adminProxy))
+	r.Mount("/storage", http.StripPrefix("/storage", webProxy))
+	r.Mount("/chat", http.StripPrefix("/chat", chatProxy))
+	r.Mount("/dashboard", http.StripPrefix("/dashboard", dashboardProxy))
 
 	// Project Preview Routes (Speed Access)
 	r.Route("/s", func(r chi.Router) {
@@ -270,12 +249,23 @@ func Start(nm *network.NetworkManager, gm *governance.GovernanceManager) {
 	r.Get("/", handleGatewayHome)
 
 	localIP := utils.GetLocalIP()
-	utils.LogInfo("Gateway", fmt.Sprintf("Public Address:    http://%s:%s", localIP, GatewayPort))
-	utils.SaveEndpoint("gateway", fmt.Sprintf("http://%s:%s", localIP, GatewayPort))
-
-	if err := http.ListenAndServe(":"+GatewayPort, r); err != nil {
-		utils.LogFatal("Gateway", err.Error())
+	// MATRIX PRO: Adaptive Listener (Try Port 80 first)
+	addr := ":" + config.GatewayPort
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		utils.LogWarning("Gateway", "Port 80 busy. Using professional fallback Port 8000.")
+		addr = ":" + config.GatewayBackup
+		ln, err = net.Listen("tcp", addr)
 	}
+
+	if err != nil {
+		utils.LogError("Gateway", "Failed to start server", err)
+		return
+	}
+
+	utils.LogSuccess("Gateway", fmt.Sprintf("Matrix Hub Online at http://%s%s", localIP, addr))
+	utils.SaveEndpoint("gateway", fmt.Sprintf("http://%s%s", localIP, addr))
+	http.Serve(ln, r)
 }
 
 // Cleanup
@@ -482,7 +472,13 @@ const gatewayHTML = `
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexa Ultimate | Network Gateway</title>
+    <title>NEXA Matrix Gateway</title>
+    <script>
+        // Force HTTP to avoid ERR_SSL_PROTOCOL_ERROR on mobile devices
+        if (window.location.protocol === 'https:') {
+            window.location.protocol = 'http:';
+        }
+    </script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -505,355 +501,146 @@ const gatewayHTML = `
             background: var(--bg);
             background-image: 
                 radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
-                radial-gradient(at 100% 100%, rgba(236, 72, 153, 0.15) 0px, transparent 50%);
+                radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(168, 85, 247, 0.15) 0%, transparent 40%);
             color: var(--text);
+            font-family: 'Outfit', 'Cairo', sans-serif;
             min-height: 100vh;
             display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
+            flex-direction: column;
             overflow-x: hidden;
         }
 
-        .container { 
-            width: 100%;
-            max-width: 1000px;
-            position: relative;
-        }
-
-        .glass-panel {
-            background: var(--card-bg);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--border);
-            border-radius: 32px;
-            padding: 40px;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-            animation: fadeIn 0.8s ease-out;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
         .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 40px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid var(--border);
+            padding: 40px 20px;
+            text-align: center;
+            animation: fadeInDown 1s ease;
         }
 
-        .brand h1 {
-            font-size: 2.5rem;
+        .logo-main {
+            font-size: 3.5rem;
             font-weight: 800;
-            background: linear-gradient(to right, #6366f1, #ec4899);
+            background: var(--primary);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            letter-spacing: -1px;
-        }
-
-        .brand p {
-            color: var(--text-muted);
-            font-weight: 400;
-            margin-top: 4px;
+            letter-spacing: -2px;
+            margin-bottom: 10px;
         }
 
         .status-badge {
-            background: rgba(34, 197, 94, 0.2);
-            color: #4ade80;
-            padding: 8px 16px;
-            border-radius: 100px;
+            background: rgba(34, 211, 238, 0.1);
+            color: var(--accent);
+            padding: 6px 16px;
+            border-radius: 20px;
             font-size: 0.9rem;
-            font-weight: 600;
-            display: flex;
+            border: 1px solid rgba(34, 211, 238, 0.3);
+            display: inline-flex;
             align-items: center;
             gap: 8px;
-            border: 1px solid rgba(34, 197, 94, 0.3);
         }
 
         .status-dot {
             width: 8px;
             height: 8px;
-            background: #4ade80;
+            background: var(--accent);
             border-radius: 50%;
-            box-shadow: 0 0 10px #4ade80;
             animation: pulse 2s infinite;
         }
 
-        @keyframes pulse {
-            0% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.5); opacity: 0.5; }
-            100% { transform: scale(1); opacity: 1; }
+        .container {
+            flex: 1;
+            padding: 0 20px 40px;
+            max-width: 600px;
+            margin: 0 auto;
+            width: 100%;
         }
 
-        .metrics-grid {
+        .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-bottom: 40px;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
         }
 
-        .metric-card {
-            background: var(--glass);
-            border: 1px solid var(--border);
-            padding: 24px;
+        .card {
+            background: var(--card);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 24px;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .metric-card:hover {
-            background: rgba(255, 255, 255, 0.08);
-            border-color: var(--primary);
-            transform: translateY(-4px);
-        }
-
-        .metric-label {
-            color: var(--text-muted);
-            font-size: 0.85rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 8px;
-        }
-
-        .metric-value {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--text);
-        }
-
-        .services-section h2 {
-            font-size: 1.5rem;
-            margin-bottom: 24px;
+            padding: 25px 15px;
+            text-align: center;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            color: white;
             display: flex;
+            flex-direction: column;
             align-items: center;
             gap: 12px;
         }
 
-        .services-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 24px;
+        .card:active { transform: scale(0.95); background: rgba(99, 102, 241, 0.2); }
+
+        .card i {
+            font-size: 2rem;
+            background: var(--primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
-        .service-link {
-            text-decoration: none;
-            color: inherit;
-        }
+        .card h3 { font-size: 1.1rem; font-weight: 600; }
+        .card p { font-size: 0.75rem; color: #94a3b8; line-height: 1.4; }
 
-        .service-card {
-            background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(236, 72, 153, 0.1));
-            border: 1px solid var(--border);
-            border-radius: 24px;
-            padding: 32px;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-            height: 100%;
-            position: relative;
-            overflow: hidden;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        }
+        .full-card { grid-column: span 2; }
+        .footer { padding: 30px; text-align: center; font-size: 0.8rem; color: #64748b; }
 
-        .service-card::before {
-            content: '';
-            position: absolute;
-            top: 0; right: 0;
-            width: 100px; height: 100px;
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            filter: blur(60px);
-            opacity: 0;
-            transition: opacity 0.4s;
-        }
-
-        .service-card:hover {
-            border-color: var(--secondary);
-            transform: scale(1.02);
-            box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.4);
-        }
-
-        .service-card:hover::before { opacity: 0.3; }
-
-        .service-card h3 {
-            font-size: 1.25rem;
-            font-weight: 700;
-            color: #fff;
-        }
-
-        .service-card p {
-            color: var(--text-muted);
-            font-size: 0.95rem;
-            line-height: 1.6;
-        }
-
-        .btn-access {
-            margin-top: auto;
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            padding: 12px 24px;
-            border-radius: 12px;
-            text-align: center;
-            font-weight: 600;
-            transition: all 0.3s;
-            border: 1px solid var(--border);
-        }
-
-        .service-card:hover .btn-access {
-            background: linear-gradient(to right, var(--primary), var(--secondary));
-            border-color: transparent;
-            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
-        }
-
-        .footer {
-            margin-top: 40px;
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 0.9rem;
-        }
-
-        [dir="rtl"] .brand h1 { letter-spacing: 0; }
+        @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
+        @keyframes fadeInDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="glass-panel">
-            <div class="header">
-                <div class="brand">
-                    <h1>NEXA ULTIMATE</h1>
-                    <p>المصفوفة المركزية والتحكم في الشبكة</p>
-                </div>
-                <div class="status-badge">
-                    <div class="status-dot"></div>
-                    نشط الآن
-                </div>
-            </div>
-
-            <div class="metrics-grid">
-                <div class="metric-card">
-                    <div class="metric-label">عنوان الـ IP المحلي</div>
-                    <div class="metric-value">{{.LocalIP}}</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-label">منفذ البوابة</div>
-                    <div class="metric-value">{{.Port}}</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-label">وقت التشغيل</div>
-                    <div class="metric-value">{{.Uptime}}s</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-label">الأمان</div>
-                    <div class="metric-value">TLS 1.3</div>
-                </div>
-            </div>
-
-            <div class="services-section">
-                <h2>⚡ الخدمات المتصلة</h2>
-                <div class="services-grid">
-                    {{range .Services}}
-                    <a href="{{.url}}" class="service-link">
-                        <div class="service-card">
-                            <h3>{{.name}}</h3>
-                            <p>{{.desc}}. جميع الاتصالات مشفرة وآمنة تماماً.</p>
-                            <div class="btn-access">دخول النظام ←</div>
-                        </div>
-                    </a>
-                    {{end}}
-                </div>
-            </div>
-
-            <div class="services-section" style="margin-top: 40px;">
-                <h2>📁 مشاريعك المحلية المستضافة</h2>
-                <div class="services-grid">
-                    {{range .Projects}}
-                    <a href="/s/{{.}}" class="service-link">
-                        <div class="service-card" style="padding: 24px; background: rgba(255,255,255,0.03);">
-                            <div style="font-size: 0.7rem; color: var(--accent); margin-bottom: 5px;">PROJECT</div>
-                            <h3 style="font-size: 1.1rem;">{{.}}.n</h3>
-                            <p style="font-size: 0.85rem;">افتح الموقع ومعاينة التغييرات فوراً.</p>
-                            <div class="btn-access" style="padding: 8px 15px; font-size: 0.85rem; margin-top: 10px;">فتح الموقع</div>
-                        </div>
-                    </a>
-                    {{else}}
-                    <p style="color: var(--text-muted); text-align: center; width: 100%; padding: 20px;">لا توجد مشاريع في مجلد sites حالياً.</p>
-                    {{end}}
-                </div>
-            </div>
-
-            <div class="services-section" style="margin-top: 40px;">
-                <h2>🌐 النطاقات الذكية (.n)</h2>
-                <div class="metrics-grid">
-                    <div class="metric-card" style="padding: 15px;">
-                        <div class="metric-label">المشاركة</div>
-                        <div class="metric-value" style="font-size: 1.1rem; color: var(--accent);">share.n</div>
-                    </div>
-                    <div class="metric-card" style="padding: 15px;">
-                        <div class="metric-label">الإدارة</div>
-                        <div class="metric-value" style="font-size: 1.1rem; color: var(--accent);">admin.n</div>
-                    </div>
-                    <div class="metric-card" style="padding: 15px;">
-                        <div class="metric-label">اللوحة</div>
-                        <div class="metric-value" style="font-size: 1.1rem; color: var(--accent);">dash.n</div>
-                    </div>
-                    <div class="metric-card" style="padding: 15px;">
-                        <div class="metric-label">الدردشة</div>
-                        <div class="metric-value" style="font-size: 1.1rem; color: var(--accent);">chat.n</div>
-                    </div>
-                </div>
-                <p style="color: var(--text-muted); font-size: 0.85rem; text-align: center; margin-top: -10px;">
-                    * تعمل هذه النطاقات تلقائياً داخل نظام Nexa (استخدم المنفذ 8000 في المتصفح).
-                </p>
-                <div style="text-align: center; margin-top: 20px;">
-                    <button onclick="document.getElementById('regModal').style.display='flex'" style="background: var(--glass); border: 1px solid var(--primary); color: var(--text); padding: 10px 20px; border-radius: 12px; cursor: pointer; transition: 0.3s; font-family: 'Cairo';">
-                        ➕ تسجيل موقع .n جديد
-                    </button>
-                </div>
-            </div>
-
-            <!-- Registration Modal -->
-            <div id="regModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); backdrop-filter:blur(10px); z-index:1000; align-items:center; justify-content:center;">
-                <div class="glass-panel" style="max-width:400px; width:90%; padding:30px;">
-                    <h3 style="margin-bottom:20px; text-align:center;">تسجيل نطاق ذكي جديد</h3>
-                    <input type="text" id="siteName" placeholder="اسم الموقع (مثلاً mysite.n)" style="width:100%; padding:12px; margin-bottom:15px; background:rgba(0,0,0,0.3); border:1px solid var(--border); border-radius:10px; color:white; font-family:'Cairo';">
-                    <input type="number" id="sitePort" placeholder="المنفذ (Port) (مثلاً 9000)" style="width:100%; padding:12px; margin-bottom:20px; background:rgba(0,0,0,0.3); border:1px solid var(--border); border-radius:10px; color:white;">
-                    <div style="display:flex; gap:10px;">
-                        <button onclick="registerSite()" style="flex:1; background:linear-gradient(to right, var(--primary), var(--secondary)); border:none; padding:12px; border-radius:10px; color:white; font-weight:bold; cursor:pointer;">تسجيل</button>
-                        <button onclick="document.getElementById('regModal').style.display='none'" style="flex:1; background:var(--glass); border:1px solid var(--border); padding:12px; border-radius:10px; color:white; cursor:pointer;">إلغاء</button>
-                    </div>
-                </div>
-            </div>
-
-            <script>
-                async function registerSite() {
-                    const name = document.getElementById('siteName').value;
-                    const port = parseInt(document.getElementById('sitePort').value);
-                    const ip = '{{.LocalIP}}';
-                    
-                    if(!name || !port) { alert('يرجى ملء جميع الحقول'); return; }
-                    
-                    try {
-                        const resp = await fetch('/api/register-site', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ name, ip, port, service: 'custom' })
-                        });
-                        if(resp.ok) {
-                            alert('تم تسجيل ' + name + ' بنجاح! سيتم التفعيل فوراً.');
-                            location.reload();
-                        } else {
-                            alert('فشل في التسجيل');
-                        }
-                    } catch(e) { console.error(e); }
-                }
-            </script>
-            </div>
-
-            <div class="footer">
-                &copy; 2026 Nexa Ultimate System. جميع الحقوق محفوظة.
-            </div>
+    <div class="header">
+        <h1 class="logo-main">NEXA</h1>
+        <div class="status-badge">
+            <div class="status-dot"></div>
+            Matrix Online
         </div>
+    </div>
+
+    <div class="container">
+        <div class="grid">
+            <a href="/dashboard" class="card full-card">
+                <i class="fas fa-microchip"></i>
+                <h3>Intelligence Hub</h3>
+                <p>التحكم والذكاء المركزي</p>
+            </a>
+            
+            <a href="/admin" class="card">
+                <i class="fas fa-user-shield"></i>
+                <h3>Admin Center</h3>
+                <p>إدارة النظام</p>
+            </a>
+
+            <a href="/storage" class="card">
+                <i class="fas fa-vault"></i>
+                <h3>Digital Vault</h3>
+                <p>تخزين الملفات</p>
+            </a>
+
+            {{range .Projects}}
+            <a href="/s/{{.}}" class="card">
+                <i class="fas fa-rocket"></i>
+                <h3>{{.}}</h3>
+                <p>مشروع مستضاف</p>
+            </a>
+            {{else}}
+            <div class="card full-card" style="opacity: 0.5;">
+                <p>لا توجد مشاريع في sites حالياً</p>
+            </div>
+            {{end}}
+        </div>
+    </div>
+
+    <div class="footer">
+        &copy; 2026 NEXA OS v4.0.0-PRO
     </div>
 </body>
 </html>
