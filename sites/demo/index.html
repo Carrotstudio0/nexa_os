@@ -1,1 +1,107 @@
-﻿<!DOCTYPE html><html lang='ar' dir='rtl'><head><meta charset='UTF-8'><style>body{background:#020617;color:white;font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0}h1{background:linear-gradient(to right,#6366f1,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:3rem}p{color:#94a3b8;font-size:1.2rem}</style></head><body><h1>نظام استضافة نكسا (NEXA Hosting)</h1><p>هذا الموقع يعمل الآن بنجاح تحت نطاق .n الذكي</p></body></html>
+﻿<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مشروع تجريبي - Nexa OS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="stars"></div>
+    <div class="stars2"></div>
+    <div class="stars3"></div>
+    
+    <div class="container">
+        <header class="hero">
+            <div class="logo-badge">
+                <div class="pulse-ring"></div>
+                <div class="emoji">🚀</div>
+            </div>
+            <h1 class="title">
+                <span class="gradient-text">مرحباً بك في Nexa OS</span>
+            </h1>
+            <p class="subtitle">منصة استضافة سحابية متقدمة • تشغيل فوري • أداء استثنائي</p>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">⚡</div>
+                    <div class="stat-value" id="uptime">0</div>
+                    <div class="stat-label">ثانية تشغيل</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">🌐</div>
+                    <div class="stat-value">100%</div>
+                    <div class="stat-label">جاهزية</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">🔒</div>
+                    <div class="stat-value">TLS 1.3</div>
+                    <div class="stat-label">تشفير</div>
+                </div>
+            </div>
+        </header>
+
+        <section class="features">
+            <h2 class="section-title">المميزات الرئيسية</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">⚙️</div>
+                    <h3>إعدادات ديناميكية</h3>
+                    <p>تحكم كامل عبر ملف config.yaml دون الحاجة لإعادة البناء</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🐳</div>
+                    <h3>جاهز للـ Docker</h3>
+                    <p>نشر فوري على أي سيرفر بأمر واحد فقط</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🌍</div>
+                    <h3>عمل عابر للمنصات</h3>
+                    <p>Windows، Linux، macOS - نفس الكود يعمل في كل مكان</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📦</div>
+                    <h3>استضافة مشاريع</h3>
+                    <p>ضع مشروعك في sites/ وسيعمل تلقائياً!</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔐</div>
+                    <h3>أمان متقدم</h3>
+                    <p>TLS/SSL مدمج مع إدارة متقدمة للصلاحيات</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3>أداء فائق</h3>
+                    <p>مبني على Go - سرعة خيالية واستهلاك موارد منخفض</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="cta">
+            <div class="cta-content">
+                <h2>جاهز للبدء؟</h2>
+                <p>هذا المشروع يعمل حالياً على Nexa OS</p>
+                <div class="cta-buttons">
+                    <a href="/dashboard" class="btn btn-primary">
+                        <span>لوحة التحكم</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                        </svg>
+                    </a>
+                    <a href="/admin" class="btn btn-secondary">
+                        مركز الإدارة
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <footer class="footer">
+            <p>مشروع تجريبي على منصة Nexa Universal Server v4.0.0-PRO</p>
+            <p class="timestamp">تم التحميل في: <span id="loadTime"></span></p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

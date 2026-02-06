@@ -29,16 +29,18 @@ powershell -Command "Stop-Service -Name W3SVC -Force -ErrorAction SilentlyContin
 net stop http /y >nul 2>&1
 
 :: 4. Build System & Cleanup
-echo  [3/4] Compiling High-Performance Binary & Cleaning Processes...
+echo  [3/4] Compiling Integrity Binary & Neutralizing Port Locks...
 taskkill /F /IM nexa.exe /T >nul 2>&1
-taskkill /F /IM gateway.exe /T >nul 2>&1
-taskkill /F /IM admin.exe /T >nul 2>&1
-taskkill /F /IM dns.exe /T >nul 2>&1
-taskkill /F /IM dashboard.exe /T >nul 2>&1
-taskkill /F /IM server.exe /T >nul 2>&1
-taskkill /F /IM web.exe /T >nul 2>&1
-taskkill /F /IM chat.exe /T >nul 2>&1
-go build -o nexa.exe ./cmd/nexa/main.go
+taskkill /F /IM nexa_gateway.exe /T >nul 2>&1
+taskkill /F /IM nexa_admin.exe /T >nul 2>&1
+taskkill /F /IM nexa_dns.exe /T >nul 2>&1
+taskkill /F /IM nexa_dashboard.exe /T >nul 2>&1
+taskkill /F /IM nexa_core_server.exe /T >nul 2>&1
+taskkill /F /IM nexa_web.exe /T >nul 2>&1
+taskkill /F /IM nexa_chat.exe /T >nul 2>&1
+taskkill /F /IM main.exe /T >nul 2>&1
+taskkill /F /IM ISCC.exe /T >nul 2>&1
+go build -trimpath -o nexa.exe ./cmd/nexa/main.go
 
 if %errorLevel% neq 0 (
     echo  [ERROR] Compilation failed. Please check Go installation.

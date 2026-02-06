@@ -18,12 +18,6 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-const (
-	GatewayPort = config.GatewayPort
-	AdminTarget = config.AdminTarget
-	WebTarget   = config.WebTarget
-)
-
 // Global state for messaging
 var (
 	networkMgr   *network.NetworkManager
@@ -47,6 +41,12 @@ func init() {
 }
 
 func main() {
+	// Initialize config
+	cfg, err := config.Load()
+	if err != nil {
+		fmt.Printf("Config load error: %v\n", err)
+	}
+
 	// Initialize router
 	r := chi.NewRouter()
 
@@ -129,10 +129,15 @@ func main() {
 		return proxy
 	}
 
-	adminProxy := createProxies(AdminTarget, "Admin")
-	webProxy := createProxies(WebTarget, "Storage")
-	chatProxy := createProxies(config.ChatTarget, "Chat")
-	dashboardProxy := createProxies(config.DashboardTarget, "Dashboard")
+	// Helper to create local target URL
+	target := func(port int) string {
+		return fmt.Sprintf("http://127.0.0.1:%d", port)
+	}
+
+	adminProxy := createProxies(target(cfg.Services.Admin.Port), "Admin")
+	webProxy := createProxies(target(cfg.Services.Storage.Port), "Storage")
+	chatProxy := createProxies(target(cfg.Services.Chat.Port), "Chat")
+	dashboardProxy := createProxies(target(cfg.Services.Dashboard.Port), "Dashboard")
 
 	// API Routes
 	r.Route("/api", func(r chi.Router) {
@@ -188,13 +193,13 @@ func main() {
 
 	localIP := utils.GetLocalIP()
 	utils.PrintBanner("NEXA ULTIMATE GATEWAY", "v3.1")
-	utils.LogInfo("Gateway", fmt.Sprintf("Public Address:    http://%s:%s", localIP, GatewayPort))
-	utils.LogInfo("Gateway", fmt.Sprintf("Route: /admin  ->  %s", AdminTarget))
-	utils.LogInfo("Gateway", fmt.Sprintf("Route: /files  ->  %s", WebTarget))
-	utils.SaveEndpoint("gateway", fmt.Sprintf("http://%s:%s", localIP, GatewayPort))
+	utils.LogInfo("Gateway", fmt.Sprintf("Public Address:    http://%s:%d", localIP, cfg.Services.Gateway.Port))
+	utils.LogInfo("Gateway", fmt.Sprintf("Route: /admin  ->  %d", cfg.Services.Admin.Port))
+	utils.LogInfo("Gateway", fmt.Sprintf("Route: /files  ->  %d", cfg.Services.Storage.Port))
+	utils.SaveEndpoint("gateway", fmt.Sprintf("http://%s:%d", localIP, cfg.Services.Gateway.Port))
 	utils.LogSuccess("Gateway", "GATEWAY ONLINE")
 
-	if err := http.ListenAndServe(":"+GatewayPort, r); err != nil {
+	if err := http.ListenAndServe(fmt.Sprintf(":%d", cfg.Services.Gateway.Port), r); err != nil {
 		log.Fatalf("Server error: %v", err)
 	}
 
@@ -343,11 +348,11 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 	response := map[string]interface{}{
 		"status": "online",
 		"ip":     utils.GetLocalIP(),
-		"port":   GatewayPort,
+		"port":   config.Get().Services.Gateway.Port,
 		"uptime": time.Since(startTime).Seconds(),
 		"services": map[string]string{
-			"admin":   AdminTarget,
-			"storage": WebTarget,
+			"admin":   fmt.Sprintf("http://127.0.0.1:%d", config.Get().Services.Admin.Port),
+			"storage": fmt.Sprintf("http://127.0.0.1:%d", config.Get().Services.Storage.Port),
 		},
 	}
 	json.NewEncoder(w).Encode(response)
@@ -357,7 +362,7 @@ func handleGatewayHome(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	data := map[string]interface{}{
 		"LocalIP":  utils.GetLocalIP(),
-		"Port":     GatewayPort,
+		"Port":     config.Get().Services.Gateway.Port,
 		"Uptime":   int(time.Since(startTime).Seconds()),
 		"Services": config.Services,
 	}

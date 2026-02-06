@@ -1,0 +1,60 @@
+{
+  "sess_1770396996450999500": {
+    "id": "sess_1770396996450999500",
+    "ip_address": "127.0.0.1",
+    "user_agent": "Go-http-client/1.1",
+    "device": "Desktop",
+    "os": "Unknown",
+    "browser": "Unknown",
+    "connected_at": "2026-02-06T18:56:36.451782+02:00",
+    "last_activity": "2026-02-06T18:56:36.451782+02:00",
+    "page_views": 1,
+    "actions": [
+      {
+        "type": "page_view",
+        "path": "/health",
+        "method": "HEAD",
+        "timestamp": "2026-02-06T18:56:36.451782+02:00"
+      },
+      {
+        "type": "api_call",
+        "path": "/health",
+        "method": "HEAD",
+        "timestamp": "2026-02-06T18:56:36.451782+02:00",
+        "status": 405
+      }
+    ],
+    "files": [],
+    "is_active": false,
+    "metadata": {}
+  },
+  "sess_1770396996456199900": {
+    "id": "sess_1770396996456199900",
+    "ip_address": "127.0.0.1",
+    "user_agent": "Go-http-client/1.1",
+    "device": "Desktop",
+    "os": "Unknown",
+    "browser": "Unknown",
+    "connected_at": "2026-02-06T18:56:36.4561999+02:00",
+    "last_activity": "2026-02-06T18:56:36.4565577+02:00",
+    "page_views": 1,
+    "actions": [
+      {
+        "type": "page_view",
+        "path": "/health",
+        "method": "GET",
+        "timestamp": "2026-02-06T18:56:36.4561999+02:00"
+      },
+      {
+        "type": "api_call",
+        "path": "/health",
+        "method": "GET",
+        "timestamp": "2026-02-06T18:56:36.4565577+02:00",
+        "status": 200
+      }
+    ],
+    "files": [],
+    "is_active": false,
+    "metadata": {}
+  }
+}

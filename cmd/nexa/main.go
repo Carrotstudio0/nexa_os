@@ -4,11 +4,12 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/MultiX0/nexa/pkg/analytics"
+	"github.com/MultiX0/nexa/pkg/config"
 	"github.com/MultiX0/nexa/pkg/governance"
 	"github.com/MultiX0/nexa/pkg/network"
 	"github.com/MultiX0/nexa/pkg/services/admin"
@@ -30,21 +31,31 @@ type Service struct {
 }
 
 func main() {
+	// Initialize Configuration
+	cfg, err := config.Load()
+	if err != nil {
+		utils.LogWarning("Config", fmt.Sprintf("Loader issue: %v", err))
+		// We continue because Load() sets defaults even on error
+	}
+
 	// MATRIX PRO: Auto-deploy Wireless Matrix (Hotspot)
 	utils.LogInfo("Nucleus", "Deploying Wireless Matrix Pulse...")
 	go func() {
-		// Run hotspot script as a separate process
-		exec.Command("powershell", "-ExecutionPolicy", "Bypass", "-File", "./scripts/enable-hotspot.ps1").Start()
+		// Run hotspot via cross-platform wrapper
+		utils.StartHotspot()
 	}()
 
 	// MATRIX PRO: Secure Gateway & Firewall Orchestration
+	utils.LogInfo("Security", "Configuring network access controls...")
 	utils.SetupFirewallRules()
 
 	// Print Professional Mobile Connectivity Banner
-	fmt.Println("\n   \033[36m╔══════════════════════════════════════════════════════════════╗\033[0m")
-	fmt.Printf("   \033[36m║\033[37m [1m  📱 MOBILE ACCESS:   http://%s           \033[0m\033[36m║\n", utils.GetLocalIP())
-	fmt.Printf("   \033[36m║\033[37m [1m  🌐 PROFESSIONAL:    http://hub.n                  \033[0m\033[36m║\n")
-	fmt.Println("   \033[36m╚══════════════════════════════════════════════════════════════╝\033[0m\n")
+	gatewayURL := fmt.Sprintf("http://%s:%d", utils.GetLocalIP(), cfg.Services.Gateway.Port)
+	fmt.Printf("\n   \033[36m+--------------------------------------------------------------+\033[0m\n")
+	fmt.Printf("   \033[36m| \033[37m\033[1m  MOBILE ACCESS:   %-32s \033[0m\033[36m          |\033[0m\n", gatewayURL)
+	fmt.Printf("   \033[36m| \033[37m\033[1m  PROFESSIONAL:    http://hub.n                             \033[0m\033[36m|\033[0m\n")
+	fmt.Printf("   \033[36m+--------------------------------------------------------------+\033[0m\n")
+	fmt.Println()
 
 	utils.UpdateHostsFile("demo.n", "127.0.0.1")
 	utils.UpdateHostsFile("admin.n", "127.0.0.1")
@@ -54,7 +65,7 @@ func main() {
 	os.Setenv("PORT_DNS", "1112")
 	os.Setenv("PORT_WEB", "8080")
 
-	utils.PrintBanner("NEXA ULTIMATE", "v4.0.0-PRO")
+	utils.PrintBanner(cfg.System.Name, cfg.System.Version)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	_ = ctx
@@ -72,7 +83,7 @@ func main() {
 	})
 
 	// Register Core Nodes
-	base, err := nm.RegisterPrimaryBase("base-core", "Nexa Nucleus Core", "00:00:00:00:00:00", localIP, 7000)
+	base, err := nm.RegisterPrimaryBase("base-core", "Nexa Nucleus Core", "00:00:00:00:00:00", localIP, cfg.Services.Dashboard.Port)
 	if err == nil {
 		base.IsOnline = true
 		base.UpdateOnlineStatus(true)
@@ -81,20 +92,23 @@ func main() {
 	gm := governance.NewGovernanceManager(governance.NewPolicyEngine("policy.json"), nm)
 	gm.Start(5 * time.Second)
 
+	// MATRIX PRO: Initialize Global Analytics Matrix
+	analytics.GetManager().SetGovernance(gm)
+
 	// --- Integrated Module Matrix ---
 	services := []struct {
 		ID, Name string
 		Port     int
 		StartFn  func(*network.NetworkManager, *governance.GovernanceManager)
 	}{
-		{"svc-dns", "DNS Authority", 53, dns.Start},
-		{"svc-gateway", "Matrix Gateway", 8000, gateway.Start},
-		{"svc-admin", "Admin Center", 8080, admin.Start},
-		{"svc-storage", "Digital Vault", 8081, storage.Start},
-		{"svc-chat", "Matrix Chat", 8082, chat.Start},
-		{"svc-dashboard", "Intelligence Hub", 7000, dashboard.Start},
-		{"svc-web", "Web Elite", 3000, web.Start},
-		{"svc-core", "Core Nucleus", 1413, server.Start},
+		{"svc-dns", "DNS Authority", cfg.Services.DNS.Port, dns.Start},
+		{"svc-gateway", "Matrix Gateway", cfg.Services.Gateway.Port, gateway.Start},
+		{"svc-admin", "Admin Center", cfg.Services.Admin.Port, admin.Start},
+		{"svc-storage", "Digital Vault", cfg.Services.Storage.Port, storage.Start},
+		{"svc-chat", "Matrix Chat", cfg.Services.Chat.Port, chat.Start},
+		{"svc-dashboard", "Intelligence Hub", cfg.Services.Dashboard.Port, dashboard.Start},
+		{"svc-web", "Web Elite", cfg.Services.Web.Port, web.Start},
+		{"svc-core", "Core Nucleus", cfg.Server.Port, server.Start},
 	}
 
 	utils.LogInfo("Matrix", fmt.Sprintf("Synchronizing %d integrated modules...", len(services)))
@@ -120,12 +134,12 @@ func main() {
 		time.Sleep(150 * time.Millisecond)
 	}
 
-	dashboardURL := fmt.Sprintf("http://%s:7000", localIP)
+	dashboardURL := fmt.Sprintf("http://%s:%d", localIP, cfg.Services.Dashboard.Port)
 	utils.LogSuccess("System", "Matrix is fully operational.")
 
 	fmt.Printf("\n  %s╔══════════════════════════════════════════════════════════════╗%s\n", utils.ColorCyan, utils.ColorReset)
 	fmt.Printf("  %s║%s  🌐 INTELLIGENCE HUB:  %s        %s║%s\n", utils.ColorCyan, utils.ColorWhite+utils.ColorBold, dashboardURL, utils.ColorReset, utils.ColorCyan)
-	fmt.Printf("  %s║%s  🚪 MATRIX GATEWAY:    http://%s:8000        %s║%s\n", utils.ColorCyan, utils.ColorWhite+utils.ColorBold, localIP, utils.ColorReset, utils.ColorCyan)
+	fmt.Printf("  %s║%s  🚪 MATRIX GATEWAY:    http://%s:%d        %s║%s\n", utils.ColorCyan, utils.ColorWhite+utils.ColorBold, localIP, cfg.Services.Gateway.Port, utils.ColorReset, utils.ColorCyan)
 	fmt.Printf("  %s╚══════════════════════════════════════════════════════════════╝%s\n\n", utils.ColorCyan, utils.ColorReset)
 
 	// PRO TOUCH: Automate Intelligence Hub launch
@@ -133,8 +147,8 @@ func main() {
 	go func() {
 		time.Sleep(2 * time.Second)
 		// Using localhost for guaranteed local access regardless of IP stability
-		localDashboard := "http://localhost:7000"
-		exec.Command("cmd", "/c", "start", localDashboard).Start()
+		localDashboard := fmt.Sprintf("http://localhost:%d", cfg.Services.Dashboard.Port)
+		utils.OpenURL(localDashboard)
 	}()
 
 	stop := make(chan os.Signal, 1)

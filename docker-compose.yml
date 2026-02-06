@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  nexa:
+    build: .
+    container_name: nexa_os
+    restart: unless-stopped
+    ports:
+      # Map host port 80 to container port 8000 (Gateway)
+      # This allows accessing http://hub.n locally if DNS is set
+      - "80:8000"
+      - "8000:8000"
+      - "8080:8080"
+      - "7000:7000"
+      - "8081:8081"
+      - "8082:8082"
+      - "53:53/udp"
+    volumes:
+      - ./data:/root/data
+      - ./sites:/root/sites
+    environment:
+      - NEXA_GATEWAY_PORT=8000
+      - NEXA_DASHBOARD_PORT=7000
+      - NEXA_ADMIN_PORT=8080
+      - NEXA_STORAGE_PORT=8081
+      - NEXA_CHAT_PORT=8082
+      - NEXA_DNS_PORT=1112
+    cap_add:
+      - NET_ADMIN

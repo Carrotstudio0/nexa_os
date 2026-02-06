@@ -1,10 +1,13 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NEXA | Intelligence Hub</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Cairo:wght@400;600;700;900&display=swap"
+        rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
@@ -26,12 +29,16 @@
             --sidebar-width: 300px;
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
             font-family: 'Outfit', 'Cairo', sans-serif;
             background: var(--bg);
-            background-image: 
+            background-image:
                 radial-gradient(circle at 10% 10%, rgba(99, 102, 241, 0.1) 0%, transparent 40%),
                 radial-gradient(circle at 90% 90%, rgba(236, 72, 153, 0.1) 0%, transparent 40%);
             color: var(--text);
@@ -51,7 +58,7 @@
             flex-direction: column;
             padding: 40px 24px;
             z-index: 100;
-            box-shadow: -20px 0 50px rgba(0,0,0,0.5);
+            box-shadow: -20px 0 50px rgba(0, 0, 0, 0.5);
         }
 
         .logo {
@@ -63,11 +70,15 @@
             background: linear-gradient(to right, var(--primary), var(--secondary));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            background-clip: text;
             margin-bottom: 60px;
             letter-spacing: -1.5px;
         }
 
-        .nav-group { margin-bottom: 32px; }
+        .nav-group {
+            margin-bottom: 32px;
+        }
+
         .nav-label {
             font-size: 0.7rem;
             text-transform: uppercase;
@@ -105,11 +116,14 @@
             box-shadow: 0 15px 30px -10px rgba(0, 0, 0, 0.3);
         }
 
-        .nav-item i { font-size: 1.25rem; width: 24px; }
+        .nav-item i {
+            font-size: 1.25rem;
+            width: 24px;
+        }
 
         .sys-info {
             margin-top: auto;
-            background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
             border: 1px solid var(--border);
             border-radius: 24px;
             padding: 24px;
@@ -129,15 +143,29 @@
         }
 
         .pulse {
-            width: 8px; height: 8px; background: var(--success); border-radius: 50%;
+            width: 8px;
+            height: 8px;
+            background: var(--success);
+            border-radius: 50%;
             box-shadow: 0 0 10px var(--success);
             animation: pulse-ring 2s infinite;
         }
 
         @keyframes pulse-ring {
-            0% { transform: scale(0.9); opacity: 1; }
-            50% { transform: scale(1.4); opacity: 0.4; }
-            100% { transform: scale(0.9); opacity: 1; }
+            0% {
+                transform: scale(0.9);
+                opacity: 1;
+            }
+
+            50% {
+                transform: scale(1.4);
+                opacity: 0.4;
+            }
+
+            100% {
+                transform: scale(0.9);
+                opacity: 1;
+            }
         }
 
         /* Main Content */
@@ -149,15 +177,33 @@
             scroll-behavior: smooth;
         }
 
-        .section { display: none; }
-        .section.active { display: block; animation: slideUp 0.7s cubic-bezier(0.16, 1, 0.3, 1); }
-
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateY(40px) scale(0.98); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
+        .section {
+            display: none;
         }
 
-        header h1 { font-size: 3.5rem; font-weight: 900; margin-bottom: 40px; letter-spacing: -2px; }
+        .section.active {
+            display: block;
+            animation: slideUp 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(40px) scale(0.98);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        header h1 {
+            font-size: 3.5rem;
+            font-weight: 900;
+            margin-bottom: 40px;
+            letter-spacing: -2px;
+        }
 
         /* Metrics */
         .metrics {
@@ -178,11 +224,39 @@
             transition: all 0.4s;
         }
 
-        .metric-card:hover { border-color: var(--primary); transform: translateY(-8px); box-shadow: 0 30px 60px -20px rgba(0,0,0,0.5); }
+        .metric-card:hover {
+            border-color: var(--primary);
+            transform: translateY(-8px);
+            box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.5);
+        }
 
-        .m-label { font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 2px; margin-bottom: 12px; font-weight: 700; }
-        .m-value { font-size: 3rem; font-weight: 900; background: linear-gradient(to bottom, #fff, #94a3b8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .m-icon { position: absolute; right: -20px; bottom: -20px; font-size: 8rem; opacity: 0.03; transform: rotate(-15deg); color: var(--primary); }
+        .m-label {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            letter-spacing: 2px;
+            margin-bottom: 12px;
+            font-weight: 700;
+        }
+
+        .m-value {
+            font-size: 3rem;
+            font-weight: 900;
+            background: linear-gradient(to bottom, #fff, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .m-icon {
+            position: absolute;
+            right: -20px;
+            bottom: -20px;
+            font-size: 8rem;
+            opacity: 0.03;
+            transform: rotate(-15deg);
+            color: var(--primary);
+        }
 
         /* Integrated Frames */
         .frame-container {
@@ -191,11 +265,15 @@
             border: 1px solid var(--border);
             border-radius: 32px;
             overflow: hidden;
-            background: rgba(0,0,0,0.2);
+            background: rgba(0, 0, 0, 0.2);
             position: relative;
         }
 
-        iframe { width: 100%; height: 100%; border: none; }
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
 
         .frame-header {
             position: absolute;
@@ -206,34 +284,78 @@
 
         .btn-glow {
             background: linear-gradient(135deg, var(--primary), var(--secondary));
-            color: white; border: none; padding: 12px 24px;
-            border-radius: 14px; cursor: pointer; font-weight: 700;
-            text-decoration: none; display: inline-flex; align-items: center; gap: 10px;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 14px;
+            cursor: pointer;
+            font-weight: 700;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
             transition: all 0.3s;
             box-shadow: 0 10px 20px -5px rgba(99, 102, 241, 0.4);
         }
 
-        .btn-glow:hover { transform: translateY(-2px); filter: brightness(1.1); box-shadow: 0 20px 40px -10px rgba(99, 102, 241, 0.6); }
+        .btn-glow:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.1);
+            box-shadow: 0 20px 40px -10px rgba(99, 102, 241, 0.6);
+        }
 
         /* Network Visualizations */
-        #graph-container { background: radial-gradient(circle at center, rgba(15, 23, 42, 0.8), #020617); }
+        #graph-container {
+            background: radial-gradient(circle at center, rgba(15, 23, 42, 0.8), #020617);
+        }
 
-        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; }
-        .m-card { 
-            background: var(--glass); border: 1px solid var(--border); padding: 24px; border-radius: 24px; position: relative; overflow: hidden;
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 24px;
+        }
+
+        .m-card {
+            background: var(--glass);
+            border: 1px solid var(--border);
+            padding: 24px;
+            border-radius: 24px;
+            position: relative;
+            overflow: hidden;
             transition: all 0.3s;
         }
-        .m-card:hover { background: rgba(255,255,255,0.06); transform: scale(1.02); }
+
+        .m-card:hover {
+            background: rgba(255, 255, 255, 0.06);
+            transform: scale(1.02);
+        }
 
         /* Responsive */
         @media (max-width: 1200px) {
-            .sidebar { width: 90px; padding: 40px 10px; }
-            .logo span, .nav-label, .nav-item span, .sys-info { display: none; }
-            .nav-item { justify-content: center; padding: 16px; }
-            .main { padding: 40px; }
+            .sidebar {
+                width: 90px;
+                padding: 40px 10px;
+            }
+
+            .logo span,
+            .nav-label,
+            .nav-item span,
+            .sys-info {
+                display: none;
+            }
+
+            .nav-item {
+                justify-content: center;
+                padding: 16px;
+            }
+
+            .main {
+                padding: 40px;
+            }
         }
     </style>
 </head>
+
 <body>
     <aside class="sidebar">
         <div class="logo">
@@ -254,6 +376,10 @@
             <div class="nav-item" onclick="showSection('chat', this)">
                 <i class="fas fa-comments"></i>
                 <span>Matrix Chat</span>
+            </div>
+            <div class="nav-item" onclick="showSection('analytics', this)">
+                <i class="fas fa-chart-line"></i>
+                <span>Analytics Hub</span>
             </div>
         </div>
 
@@ -322,51 +448,88 @@
             </div>
 
             <div class="metrics-grid">
-                <div class="m-card" onclick="showSection('files', document.querySelectorAll('.nav-item')[1])" style="cursor:pointer">
-                    <h3 style="margin-bottom:15px; display:flex; align-items:center; gap:10px;"><i class="fas fa-database" style="color:var(--accent)"></i> DIGITAL VAULT</h3>
-                    <p style="color:var(--text-muted); font-size:0.9rem; line-height:1.6;">Secure file storage and decentralized sharing across the Nexa matrix.</p>
+                <div class="m-card" onclick="showSection('files', document.querySelectorAll('.nav-item')[1])"
+                    style="cursor:pointer">
+                    <h3 style="margin-bottom:15px; display:flex; align-items:center; gap:10px;"><i
+                            class="fas fa-database" style="color:var(--accent)"></i> DIGITAL VAULT</h3>
+                    <p style="color:var(--text-muted); font-size:0.9rem; line-height:1.6;">Secure file storage and
+                        decentralized sharing across the Nexa matrix.</p>
                 </div>
-                <div class="m-card" onclick="showSection('chat', document.querySelectorAll('.nav-item')[2])" style="cursor:pointer">
-                    <h3 style="margin-bottom:15px; display:flex; align-items:center; gap:10px;"><i class="fas fa-comment-dots" style="color:var(--secondary)"></i> MATRIX CHAT</h3>
-                    <p style="color:var(--text-muted); font-size:0.9rem; line-height:1.6;">Quantum encrypted communication pipe for real-time peer interactions.</p>
+                <div class="m-card" onclick="showSection('chat', document.querySelectorAll('.nav-item')[2])"
+                    style="cursor:pointer">
+                    <h3 style="margin-bottom:15px; display:flex; align-items:center; gap:10px;"><i
+                            class="fas fa-comment-dots" style="color:var(--secondary)"></i> MATRIX CHAT</h3>
+                    <p style="color:var(--text-muted); font-size:0.9rem; line-height:1.6;">Quantum encrypted
+                        communication pipe for real-time peer interactions.</p>
+                </div>
+                <div class="m-card" onclick="showSection('analytics', document.querySelectorAll('.nav-item')[3])"
+                    style="cursor:pointer">
+                    <h3 style="margin-bottom:15px; display:flex; align-items:center; gap:10px;"><i
+                            class="fas fa-chart-pie" style="color:var(--primary)"></i> ANALYTICS HUB</h3>
+                    <p style="color:var(--text-muted); font-size:0.9rem; line-height:1.6;">Real-time tracking of network
+                        traffic, user sessions, and service performance.</p>
                 </div>
             </div>
         </div>
 
         <!-- Framed Sections -->
         <div id="files" class="section">
-            <header><h1>Digital Vault</h1></header>
+            <header>
+                <h1>Digital Vault</h1>
+            </header>
             <div class="frame-container">
                 <div class="frame-header">
-                    <a href="http://{{.LocalIP}}:8081/" target="_blank" class="btn-glow">OPEN EXTERNAL <i class="fas fa-external-link-alt"></i></a>
+                    <a href="http://{{.LocalIP}}:8081/" target="_blank" class="btn-glow">OPEN EXTERNAL <i
+                            class="fas fa-external-link-alt"></i></a>
                 </div>
                 <iframe src="/storage/"></iframe>
             </div>
         </div>
 
         <div id="chat" class="section">
-            <header><h1>Matrix Chat</h1></header>
+            <header>
+                <h1>Matrix Chat</h1>
+            </header>
             <div class="frame-container">
                 <div class="frame-header">
-                    <a href="http://{{.LocalIP}}:8082/" target="_blank" class="btn-glow">OPEN EXTERNAL <i class="fas fa-external-link-alt"></i></a>
+                    <a href="http://{{.LocalIP}}:8082/" target="_blank" class="btn-glow">OPEN EXTERNAL <i
+                            class="fas fa-external-link-alt"></i></a>
                 </div>
                 <iframe src="/chat/"></iframe>
             </div>
         </div>
 
         <div id="admin" class="section">
-            <header><h1>Admin Center</h1></header>
+            <header>
+                <h1>Admin Center</h1>
+            </header>
             <div class="frame-container">
                 <div class="frame-header">
-                    <a href="http://{{.LocalIP}}:8080/" target="_blank" class="btn-glow">OPEN EXTERNAL <i class="fas fa-external-link-alt"></i></a>
+                    <a href="http://{{.LocalIP}}:8080/" target="_blank" class="btn-glow">OPEN EXTERNAL <i
+                            class="fas fa-external-link-alt"></i></a>
                 </div>
                 <iframe src="/admin/"></iframe>
             </div>
         </div>
 
+        <div id="analytics" class="section">
+            <header>
+                <h1>Matrix Analytics</h1>
+            </header>
+            <div class="frame-container">
+                <div class="frame-header">
+                    <a href="http://{{.LocalIP}}:8000/analytics" target="_blank" class="btn-glow">OPEN EXTERNAL <i
+                            class="fas fa-external-link-alt"></i></a>
+                </div>
+                <iframe src="/analytics"></iframe>
+            </div>
+        </div>
+
         <!-- Network Graph -->
         <div id="network" class="section">
-            <header><h1>Knowledge Graph</h1></header>
+            <header>
+                <h1>Knowledge Graph</h1>
+            </header>
             <div class="frame-container">
                 <div id="graph-container" style="width:100%; height:100%;"></div>
             </div>
@@ -374,25 +537,36 @@
 
         <!-- Telemetry -->
         <div id="telemetry" class="section">
-            <header><h1>Live Telemetry</h1></header>
+            <header>
+                <h1>Live Telemetry</h1>
+            </header>
             <div class="metrics-grid" id="telemetry-grid"></div>
         </div>
 
         <!-- Policy -->
         <div id="policy" class="section">
-            <header><h1>System Policy</h1></header>
+            <header>
+                <h1>System Policy</h1>
+            </header>
             <div class="m-card" style="max-width:800px; padding:40px;">
-                <form id="policy-form" onsubmit="savePolicy(event)" style="display:grid; grid-template-columns:1fr 1fr; gap:32px;">
+                <form id="policy-form" onsubmit="savePolicy(event)"
+                    style="display:grid; grid-template-columns:1fr 1fr; gap:32px;">
                     <div>
-                        <label style="display:block; margin-bottom:12px; font-weight:700; color:var(--text-muted)">MAX NETWORK NODES</label>
-                        <input type="number" name="network.max_clients" style="width:100%; padding:16px; background:rgba(0,0,0,0.3); border:1px solid var(--border); border-radius:14px; color:white; font-family:inherit;">
+                        <label style="display:block; margin-bottom:12px; font-weight:700; color:var(--text-muted)">MAX
+                            NETWORK NODES</label>
+                        <input type="number" name="network.max_clients"
+                            style="width:100%; padding:16px; background:rgba(0,0,0,0.3); border:1px solid var(--border); border-radius:14px; color:white; font-family:inherit;">
                     </div>
                     <div>
-                        <label style="display:block; margin-bottom:12px; font-weight:700; color:var(--text-muted)">TRAFFIC LIMIT (GB/s)</label>
-                        <input type="number" name="network.traffic_limit" style="width:100%; padding:16px; background:rgba(0,0,0,0.3); border:1px solid var(--border); border-radius:14px; color:white; font-family:inherit;">
+                        <label
+                            style="display:block; margin-bottom:12px; font-weight:700; color:var(--text-muted)">TRAFFIC
+                            LIMIT (GB/s)</label>
+                        <input type="number" name="network.traffic_limit"
+                            style="width:100%; padding:16px; background:rgba(0,0,0,0.3); border:1px solid var(--border); border-radius:14px; color:white; font-family:inherit;">
                     </div>
                     <div style="grid-column: span 2;">
-                        <button type="submit" class="btn-glow" style="width:100%; padding:20px; font-size:1.1rem;">DEPLOY NEW PROTOCOL</button>
+                        <button type="submit" class="btn-glow"
+                            style="width:100%; padding:20px; font-size:1.1rem;">DEPLOY NEW PROTOCOL</button>
                     </div>
                 </form>
             </div>
@@ -400,7 +574,9 @@
 
         <!-- Audit Timeline -->
         <div id="timeline" class="section">
-            <header><h1>Audit Logs</h1></header>
+            <header>
+                <h1>Audit Logs</h1>
+            </header>
             <div id="timeline-list" style="display:flex; flex-direction:column; gap:16px;"></div>
         </div>
     </main>
@@ -412,22 +588,22 @@
             document.getElementById(id).classList.add('active');
             el.classList.add('active');
 
-            if(id === 'network') initNetworkMap();
-            else if(id === 'telemetry') startTelemetry();
-            else if(id === 'policy') loadPolicy();
-            else if(id === 'timeline') loadTimeline();
+            if (id === 'network') initNetworkMap();
+            else if (id === 'telemetry') startTelemetry();
+            else if (id === 'policy') loadPolicy();
+            else if (id === 'timeline') loadTimeline();
             else stopTelemetry();
         }
 
         let telemetryInterval;
         function startTelemetry() {
             updateTelemetry();
-            if(telemetryInterval) clearInterval(telemetryInterval);
+            if (telemetryInterval) clearInterval(telemetryInterval);
             telemetryInterval = setInterval(updateTelemetry, 2000);
         }
 
         function stopTelemetry() {
-            if(telemetryInterval) clearInterval(telemetryInterval);
+            if (telemetryInterval) clearInterval(telemetryInterval);
         }
 
         function updateTelemetry() {
@@ -436,13 +612,13 @@
                 .then(topo => {
                     const grid = document.getElementById('telemetry-grid');
                     let html = '';
-                    
+
                     if (topo.service_metrics) {
                         for (const [name, metrics] of Object.entries(topo.service_metrics)) {
                             html += '<div class="m-card" style="border-right: 4px solid var(--primary);">' +
-                                    '<div class="m-label">' + name.toUpperCase() + ' MODULE</div>' +
-                                    '<div class="m-value" style="font-size:1.4rem;">' + JSON.stringify(metrics, null, 1).replace(/[{}]/g, '') + '</div>' +
-                                    '</div>';
+                                '<div class="m-label">' + name.toUpperCase() + ' MODULE</div>' +
+                                '<div class="m-value" style="font-size:1.4rem;">' + JSON.stringify(metrics, null, 1).replace(/[{}]/g, '') + '</div>' +
+                                '</div>';
                         }
                     }
                     grid.innerHTML = html;
@@ -504,9 +680,9 @@
             fetch('/api/governance/policy')
                 .then(r => r.json())
                 .then(p => {
-                    for(let k in p.rules) {
-                        const input = document.querySelector('input[name="'+k+'"]');
-                        if(input) input.value = p.rules[k];
+                    for (let k in p.rules) {
+                        const input = document.querySelector('input[name="' + k + '"]');
+                        if (input) input.value = p.rules[k];
                     }
                 });
         }
@@ -516,10 +692,10 @@
             const formData = new FormData(e.target);
             const policy = { rules: {} };
             formData.forEach((v, k) => policy.rules[k] = v);
-            
+
             fetch('/api/governance/policy', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(policy)
             }).then(() => alert('System Policy Updated Root-wide.'));
         }
@@ -529,15 +705,16 @@
                 .then(r => r.json())
                 .then(logs => {
                     const list = document.getElementById('timeline-list');
-                    list.innerHTML = logs.map(l => 
+                    list.innerHTML = logs.map(l =>
                         '<div class="m-card" style="border-left: 4px solid var(--accent)">' +
-                            '<div style="font-size:0.7rem; color:var(--text-muted); font-weight:800; margin-bottom:5px;">' + new Date(l.timestamp).toLocaleString() + '</div>' +
-                            '<div style="font-weight:700;">' + l.event + '</div>' +
-                            '<div style="font-size:0.9rem; opacity:0.8;">' + l.description + '</div>' +
+                        '<div style="font-size:0.7rem; color:var(--text-muted); font-weight:800; margin-bottom:5px;">' + new Date(l.timestamp).toLocaleString() + '</div>' +
+                        '<div style="font-weight:700;">' + l.event + '</div>' +
+                        '<div style="font-size:0.9rem; opacity:0.8;">' + l.description + '</div>' +
                         '</div>'
                     ).join('');
                 });
         }
     </script>
 </body>
+
 </html>

@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/MultiX0/nexa/pkg/config"
 	"github.com/MultiX0/nexa/pkg/governance"
@@ -180,11 +181,22 @@ func handleProxyChat(w http.ResponseWriter, r *http.Request) {
 	io.Copy(w, resp.Body)
 }
 
+func handleHealth(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	status := map[string]interface{}{
+		"status":    "healthy",
+		"service":   "dashboard",
+		"timestamp": time.Now().Unix(),
+	}
+	json.NewEncoder(w).Encode(status)
+}
+
 func Start(nm *network.NetworkManager, gm *governance.GovernanceManager) {
 	netManager = nm
 	govManager = gm
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handleDashboard)
+	mux.HandleFunc("/health", handleHealth)
 	mux.HandleFunc("/storage/", handleProxyFiles)
 	mux.HandleFunc("/admin/", handleProxyAdmin)
 	mux.HandleFunc("/chat/", handleProxyChat)

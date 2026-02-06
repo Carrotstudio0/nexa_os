@@ -86,7 +86,7 @@ func Start(nm *network.NetworkManager, gm *governance.GovernanceManager) {
 	}
 
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		utils.LogFatal("Admin", err.Error())
+		utils.LogError("Admin", "Failed to start server", err)
 	}
 }
 

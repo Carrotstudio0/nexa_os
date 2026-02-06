@@ -35,7 +35,7 @@ const (
 var (
 	PORT_SERVER = getEnv("PORT_SERVER", "1413")
 	PORT_DNS    = getEnv("PORT_DNS", "1112")
-	PORT_WEB    = getEnv("PORT_WEB", "8080")
+	PORT_WEB    = getEnv("PORT_WEB", "3000")
 )
 
 // Request defines the structure of a Nexa protocol request

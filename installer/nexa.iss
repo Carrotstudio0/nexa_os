@@ -22,7 +22,7 @@ DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
 AllowNoIcons=yes
 OutputDir=..\installer_output
-OutputBaseFilename=Nexa_OS_Ultimate_PRO_MEGA_Setup
+OutputBaseFilename=Nexa_OS_Ultimate_V4_Setup
 ; Using High compression but including massive files
 Compression=lzma2/ultra64
 SolidCompression=yes
@@ -79,16 +79,19 @@ Source: "..\certs\*"; DestDir: "{app}\certs"; Flags: ignoreversion recursesubdir
 Source: "..\go.mod"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\go.sum"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\readme.md"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\config.yaml"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\ledger.json"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "..\dns_records.json"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "..\users.json"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "..\data\analytics.json"; DestDir: "{app}\data"; Flags: ignoreversion skipifsourcedoesntexist
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"
 Name: "{group}\Unified Admin Console"; Filename: "{app}\NEXA_MASTER_READY.bat"
-Name: "{group}\Individual Services\Gateway Control"; Filename: "{app}\bin\gateway.exe"
-Name: "{group}\Individual Services\Admin Center"; Filename: "{app}\bin\admin.exe"
-Name: "{group}\Individual Services\Intelligence Hub"; Filename: "{app}\bin\dashboard.exe"
+Name: "{group}\Matrix Analytics Hub"; Filename: "http://localhost:8000/analytics"
+Name: "{group}\Individual Services\Gateway Control"; Filename: "{app}\bin\nexa_gateway.exe"
+Name: "{group}\Individual Services\Admin Center"; Filename: "{app}\bin\nexa_admin.exe"
+Name: "{group}\Individual Services\Intelligence Hub"; Filename: "{app}\bin\nexa_dashboard.exe"
 Name: "{group}\Documentation"; Filename: "{app}\readme.md"
 Name: "{group}\{cm:UninstallProgram,{#AppName}}"; Filename: "{uninstallexe}"
 Name: "{commondesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: desktopicon

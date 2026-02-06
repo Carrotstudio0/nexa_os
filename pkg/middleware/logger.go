@@ -23,10 +23,17 @@ func RequestLogger(logFile string) func(next http.Handler) http.Handler {
 	// Create log file
 	f, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
-		panic(fmt.Sprintf("failed to create log file: %v", err))
+		// Log error but don't panic - use stdout only
+		fmt.Fprintf(os.Stderr, "Warning: failed to create log file %s: %v\n", logFile, err)
+		f = nil
 	}
 
-	logger := log.New(io.MultiWriter(os.Stdout, f), "[NEXA] ", log.LstdFlags)
+	// Create logger with fallback to stdout only
+	var logWriter io.Writer = os.Stdout
+	if f != nil {
+		logWriter = io.MultiWriter(os.Stdout, f)
+	}
+	logger := log.New(logWriter, "[NEXA] ", log.LstdFlags)
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

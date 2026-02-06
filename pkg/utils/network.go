@@ -3,9 +3,6 @@ package utils
 import (
 	"fmt"
 	"net"
-	"os"
-	"os/exec"
-	"strings"
 )
 
 // GetLocalIP returns the primary local IP address, preferring 192.168.x.x
@@ -64,43 +61,4 @@ func FormatSize(size int64) string {
 	return fmt.Sprintf("%.2f %cB", float64(size)/float64(div), "KMGTPE"[exp])
 }
 
-// UpdateHostsFile adds or updates a local domain mapping in the Windows hosts file
-func UpdateHostsFile(domain string, ip string) error {
-	hostsPath := `C:\Windows\System32\drivers\etc\hosts`
-	content, err := os.ReadFile(hostsPath)
-	if err != nil {
-		return err
-	}
-
-	line := fmt.Sprintf("\r\n%s %s # NEXA_AUTO_DOMAIN", ip, domain)
-	if !strings.Contains(string(content), domain) {
-		f, err := os.OpenFile(hostsPath, os.O_APPEND|os.O_WRONLY, 0644)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-		_, err = f.WriteString(line)
-		return err
-	}
-	return nil
-}
-
-// SetupFirewallRules opens necessary ports in Windows Firewall for professional network access
-func SetupFirewallRules() {
-	commands := []string{
-		`netsh advfirewall firewall delete rule name="NEXA DNS PRO"`,
-		`netsh advfirewall firewall delete rule name="NEXA WEB PRO"`,
-		`netsh advfirewall firewall delete rule name="NEXA GATEWAY"`,
-		`netsh advfirewall firewall add rule name="NEXA DNS PRO" dir=in action=allow protocol=UDP localport=53 profile=any`,
-		`netsh advfirewall firewall add rule name="NEXA WEB PRO" dir=in action=allow protocol=TCP localport=80 profile=any`,
-		`netsh advfirewall firewall add rule name="NEXA GATEWAY" dir=in action=allow protocol=TCP localport=8000 profile=any`,
-		`netsh advfirewall firewall add rule name="NEXA mDNS" dir=in action=allow protocol=UDP localport=5353 profile=any`,
-	}
-
-	for _, cmd := range commands {
-		exec.Command("powershell", "-Command", cmd).Run()
-	}
-
-	// Stop Windows hidden HTTP service if it's blocking port 80
-	exec.Command("powershell", "-Command", "Stop-Service -Name W3SVC -ErrorAction SilentlyContinue").Run()
-}
+// UpdateHostsFile and SetupFirewallRules have been moved to platform_windows.go and platform_unix.go

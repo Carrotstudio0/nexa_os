@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"crypto/subtle"
+	"encoding/base64"
 	"net/http"
 	"strings"
 )
@@ -39,13 +40,12 @@ func BasicAuth(username, password string) func(next http.Handler) http.Handler {
 			}
 
 			// Timing-safe comparison
-			if subtle.ConstantTimeCompare([]byte(creds[0]), []byte(username)) == 0 ||
-				subtle.ConstantTimeCompare([]byte(creds[1]), []byte(password)) == 0 {
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			if subtle.ConstantTimeCompare([]byte(creds[0]), []byte(username)) == 1 &&
+				subtle.ConstantTimeCompare([]byte(creds[1]), []byte(password)) == 1 {
+				next.ServeHTTP(w, r)
 				return
 			}
-
-			next.ServeHTTP(w, r)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		})
 	}
 }
@@ -62,27 +62,12 @@ func SecurityHeaders(next http.Handler) http.Handler {
 	})
 }
 
-// Helper function to decode base64
+// Helper function to decode base64 - uses standard library
 func decodeBase64(s string, dst []byte) (int, error) {
-	// Simple base64 decoder (in production, use encoding/base64)
-	const base64chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-
-	n := 0
-	for i := 0; i < len(s); i += 4 {
-		// Decode 4 characters to 3 bytes
-		if i+3 >= len(s) {
-			break
-		}
-
-		// This is simplified; use proper base64 decoding in production
-		for j := 0; j < 4 && i+j < len(s); j++ {
-			char := s[i+j]
-			idx := strings.IndexByte(base64chars, char)
-			if idx == -1 && char != '=' {
-				return 0, nil
-			}
-		}
+	decoded, err := base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		return 0, err
 	}
-
+	n := copy(dst, decoded)
 	return n, nil
 }

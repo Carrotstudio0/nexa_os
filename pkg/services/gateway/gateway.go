@@ -14,6 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/MultiX0/nexa/pkg/analytics"
 	"github.com/MultiX0/nexa/pkg/config"
 	"github.com/MultiX0/nexa/pkg/governance"
 	"github.com/MultiX0/nexa/pkg/network"
@@ -21,12 +22,6 @@ import (
 	"github.com/MultiX0/nexa/pkg/utils"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-)
-
-const (
-	GatewayPort = config.GatewayPort
-	AdminTarget = config.AdminTarget
-	WebTarget   = config.WebTarget
 )
 
 // Global state for messaging
@@ -127,6 +122,7 @@ func Start(nm *network.NetworkManager, gm *governance.GovernanceManager) {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(60 * time.Second))
+	r.Use(analytics.TrackingMiddleware) // Track all requests
 
 	// Simple CORS middleware
 	r.Use(func(next http.Handler) http.Handler {
@@ -149,13 +145,25 @@ func Start(nm *network.NetworkManager, gm *governance.GovernanceManager) {
 			utils.LogError("Gateway", fmt.Sprintf("Proxy error to %s", name), err)
 			http.Error(w, "Service Unavailable", http.StatusServiceUnavailable)
 		}
+		// Add cleanup response header
+		proxy.ModifyResponse = func(r *http.Response) error {
+			r.Header.Del("Server")
+			return nil
+		}
 		return proxy
 	}
 
-	adminProxy := createProxies(AdminTarget, "Admin")
-	webProxy := createProxies(WebTarget, "Storage")
-	chatProxy := createProxies(config.ChatTarget, "Chat")
-	dashboardProxy := createProxies(config.DashboardTarget, "Dashboard")
+	// Helper to create local target URL
+	target := func(port int) string {
+		return fmt.Sprintf("http://127.0.0.1:%d", port)
+	}
+
+	cfg := config.Get()
+
+	adminProxy := createProxies(target(cfg.Services.Admin.Port), "Admin")
+	webProxy := createProxies(target(cfg.Services.Storage.Port), "Storage")
+	chatProxy := createProxies(target(cfg.Services.Chat.Port), "Chat")
+	dashboardProxy := createProxies(target(cfg.Services.Dashboard.Port), "Dashboard")
 
 	// Smart Host-based Routing (Support for .n and .nexa domains)
 	r.Use(func(next http.Handler) http.Handler {
@@ -167,7 +175,9 @@ func Start(nm *network.NetworkManager, gm *governance.GovernanceManager) {
 				strings.HasSuffix(host, ".nexa") ||
 				strings.HasSuffix(host, ".lvh.me") ||
 				strings.Contains(host, ".sslip.io") ||
-				strings.Contains(host, ".nip.io")
+				strings.Contains(host, ".nip.io") ||
+				host == "nexa.local" ||
+				strings.Contains(host, ".nexa.local")
 
 			if isMagicDomain {
 				// Extract primary subdomain (e.g., hub from hub.192.168.1.3.ssl
@@ -185,6 +195,9 @@ func Start(nm *network.NetworkManager, gm *governance.GovernanceManager) {
 				case subdomain == "chat":
 					chatProxy.ServeHTTP(w, r)
 					return
+				case subdomain == "analytics":
+					http.Redirect(w, r, "/analytics", http.StatusFound)
+					return
 				default:
 					// UNIVERSAL NEXA PROJECT HOSTING
 					projectName := subdomain
@@ -198,6 +211,9 @@ func Start(nm *network.NetworkManager, gm *governance.GovernanceManager) {
 			next.ServeHTTP(w, r)
 		})
 	})
+
+	// Register analytics routes (Must be after middlewares)
+	analytics.RegisterRoutes(r)
 
 	// API Routes
 	r.Route("/api", func(r chi.Router) {
@@ -231,6 +247,7 @@ func Start(nm *network.NetworkManager, gm *governance.GovernanceManager) {
 
 	// Project Preview Routes (Speed Access)
 	r.Route("/s", func(r chi.Router) {
+		// Middleware specifically for project analytics could go here if needed
 		r.Get("/{projectName}*", func(w http.ResponseWriter, r *http.Request) {
 			projectName := chi.URLParam(r, "projectName")
 			projectPath := filepath.Join("sites", projectName)
@@ -249,13 +266,12 @@ func Start(nm *network.NetworkManager, gm *governance.GovernanceManager) {
 	r.Get("/", handleGatewayHome)
 
 	localIP := utils.GetLocalIP()
-	// MATRIX PRO: Adaptive Listener (Try Port 80 first)
-	addr := ":" + config.GatewayPort
+	// MATRIX PRO: Adaptive Listener
+	addr := fmt.Sprintf(":%d", cfg.Services.Gateway.Port)
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
-		utils.LogWarning("Gateway", "Port 80 busy. Using professional fallback Port 8000.")
-		addr = ":" + config.GatewayBackup
-		ln, err = net.Listen("tcp", addr)
+		utils.LogWarning("Gateway", fmt.Sprintf("Port %d busy. Trying fallback...", cfg.Services.Gateway.Port))
+		// Fallback logic could go here, but for now we stick to config or crash to allow restart
 	}
 
 	if err != nil {
@@ -405,14 +421,15 @@ func handleDisconnectDevice(w http.ResponseWriter, r *http.Request) {
 // Handlers
 func handleStatus(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	cfg := config.Get()
 	response := map[string]interface{}{
 		"status": "online",
 		"ip":     utils.GetLocalIP(),
-		"port":   GatewayPort,
+		"port":   cfg.Services.Gateway.Port,
 		"uptime": time.Since(startTime).Seconds(),
 		"services": map[string]string{
-			"admin":   AdminTarget,
-			"storage": WebTarget,
+			"admin":   fmt.Sprintf("http://127.0.0.1:%d", cfg.Services.Admin.Port),
+			"storage": fmt.Sprintf("http://127.0.0.1:%d", cfg.Services.Storage.Port),
 		},
 	}
 	json.NewEncoder(w).Encode(response)
@@ -451,9 +468,10 @@ func handleGatewayHome(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	cfg := config.Get()
 	data := map[string]interface{}{
 		"LocalIP":  utils.GetLocalIP(),
-		"Port":     GatewayPort,
+		"Port":     cfg.Services.Gateway.Port,
 		"Uptime":   int(time.Since(startTime).Seconds()),
 		"Services": config.Services,
 		"Projects": projects,

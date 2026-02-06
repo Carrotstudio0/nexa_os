@@ -14,23 +14,32 @@ if not exist "bin" mkdir bin
 
 :: 2. Build the Main Engine
 echo  [1/3] Compiling Main Go Engine...
-go build -o nexa.exe ./cmd/nexa/
+go build -trimpath -o nexa.exe ./cmd/nexa/
 if !errorLevel! neq 0 (
     echo  [ERROR] Main Go build failed!
     pause
     exit /b !errorLevel!
 )
 
-:: 3. Build Sub-Services
-echo  [2/3] Compiling All Sub-Services (Gateway, Admin, DNS, Dashboard, etc.)...
-go build -o bin/gateway.exe ./cmd/gateway/
-go build -o bin/admin.exe ./cmd/admin/
-go build -o bin/dns.exe ./cmd/dns/
-go build -o bin/dashboard.exe ./cmd/dashboard/
-go build -o bin/server.exe ./cmd/server/
-go build -o bin/web.exe ./cmd/web/
-go build -o bin/chat.exe ./cmd/chat/
-go build -o bin/client.exe ./cmd/client/
+:: 3. Build Sub-Services (Modular Components)
+echo  [2/3] Compiling Modular Matrix Services...
+echo      - Gateway Matrix...
+go build -trimpath -o bin/nexa_gateway.exe ./cmd/gateway/
+echo      - Admin Command Center...
+go build -trimpath -o bin/nexa_admin.exe ./cmd/admin/
+echo      - DNS Authority Node...
+go build -trimpath -o bin/nexa_dns.exe ./cmd/dns/
+echo      - Intelligence Dashboard...
+go build -trimpath -o bin/nexa_dashboard.exe ./cmd/dashboard/
+echo      - Core Server Engine...
+go build -trimpath -o bin/nexa_core_server.exe ./cmd/server/
+echo      - Universal Web Node...
+go build -trimpath -o bin/nexa_web.exe ./cmd/web/
+echo      - Quantum Chat Module...
+go build -trimpath -o bin/nexa_chat.exe ./cmd/chat/
+echo      - Terminal Client...
+go build -trimpath -o bin/nexa_client.exe ./cmd/client/
+echo.
 
 :: 4. Locate and Run Inno Setup Compiler
 echo  [3/3] Compiling Setup Executable...

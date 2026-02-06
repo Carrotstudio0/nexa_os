@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/MultiX0/nexa/pkg/analytics"
 	"github.com/MultiX0/nexa/pkg/config"
 	"github.com/MultiX0/nexa/pkg/governance"
 	"github.com/MultiX0/nexa/pkg/network"
@@ -22,7 +23,6 @@ import (
 )
 
 const (
-	Port        = config.WebPort
 	StorageRoot = "./storage"
 )
 
@@ -565,18 +565,20 @@ func Start(nm *network.NetworkManager, gm *governance.GovernanceManager) {
 	mux.HandleFunc("/api/mkdir", enableCORS(mkdirAPIHandler))
 	mux.HandleFunc("/s/", enableCORS(handleSharedLink))
 
+	cfg := config.Get()
+	portStr := fmt.Sprintf("%d", cfg.Services.Storage.Port)
 	localIP := utils.GetLocalIP()
 	utils.LogInfo("Storage", fmt.Sprintf("Root: %s", StorageRoot))
-	utils.LogInfo("Storage", fmt.Sprintf("UI:   http://%s:%s", localIP, Port))
-	utils.SaveEndpoint("storage", fmt.Sprintf("http://%s:%s", localIP, Port))
+	utils.LogInfo("Storage", fmt.Sprintf("UI:   http://%s:%s", localIP, portStr))
+	utils.SaveEndpoint("storage", fmt.Sprintf("http://%s:%s", localIP, portStr))
 
 	server := &http.Server{
-		Addr:    "0.0.0.0:" + Port,
+		Addr:    "0.0.0.0:" + portStr,
 		Handler: mux,
 	}
 
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		utils.LogFatal("Storage", err.Error())
+		utils.LogError("Storage", "Failed to start server", err)
 	}
 }
 
@@ -710,6 +712,20 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 		written, _ := io.Copy(dst, file)
 
 		utils.LogSuccess("Storage", fmt.Sprintf("Uploaded: %s (%s)", filename, utils.FormatSize(written)))
+
+		// Track in analytics
+		sessionID := "unknown"
+		if cookie, err := r.Cookie("session_id"); err == nil {
+			sessionID = cookie.Value
+		}
+		analytics.GetManager().TrackFile(sessionID, analytics.FileActivity{
+			Action:   "upload",
+			FileName: filename,
+			Path:     targetPath,
+			FileSize: written,
+			Status:   "success",
+		})
+
 		metricsMutex.Lock()
 		uploadBytes += written
 		metricsMutex.Unlock()
@@ -735,6 +751,19 @@ func deleteHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	os.RemoveAll(filepath.Join(StorageRoot, file))
 	utils.LogInfo("Storage", "Deleted: "+file)
+
+	// Track in analytics
+	sessionID := "unknown"
+	if cookie, err := r.Cookie("session_id"); err == nil {
+		sessionID = cookie.Value
+	}
+	analytics.GetManager().TrackFile(sessionID, analytics.FileActivity{
+		Action:   "delete",
+		FileName: filepath.Base(file),
+		Path:     file,
+		Status:   "success",
+	})
+
 	w.WriteHeader(200)
 }
 
@@ -755,6 +784,20 @@ func downloadHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Track download size
 	n, _ := io.Copy(w, f)
+
+	// Track in analytics
+	sessionID := "unknown"
+	if cookie, err := r.Cookie("session_id"); err == nil {
+		sessionID = cookie.Value
+	}
+	analytics.GetManager().TrackFile(sessionID, analytics.FileActivity{
+		Action:   "download",
+		FileName: filepath.Base(file),
+		Path:     file,
+		FileSize: n,
+		Status:   "success",
+	})
+
 	metricsMutex.Lock()
 	downloadBytes += n
 	metricsMutex.Unlock()
@@ -772,7 +815,8 @@ func shareAPIHandler(w http.ResponseWriter, r *http.Request) {
 	shareLinks[token] = file
 	shareMutex.Unlock()
 	localIP := utils.GetLocalIP()
-	link := fmt.Sprintf("http://%s:%s/s/%s", localIP, Port, token)
+	cfg := config.Get()
+	link := fmt.Sprintf("http://%s:%d/s/%s", localIP, cfg.Services.Storage.Port, token)
 	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprintf(w, `{"link":"%s"}`, link)
 }

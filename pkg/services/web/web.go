@@ -18,7 +18,6 @@ import (
 var uiFiles embed.FS
 
 const (
-	WebPort     = config.WebPort
 	StorageRoot = "./storage"
 )
 
@@ -27,19 +26,22 @@ func Start(nm *network.NetworkManager, gm *governance.GovernanceManager) {
 	// Ensure storage directory structure
 	initStorageDirectories()
 
+	cfg := config.Get()
+	portStr := fmt.Sprintf("%d", cfg.Services.Web.Port)
+
 	// Register routes
 	http.HandleFunc("/", enableCORS(serveWebUI))
 	http.HandleFunc("/api/status", enableCORS(statusHandler))
 
 	localIP := utils.GetLocalIP()
 	utils.LogInfo("Web", "v4.0.0-PRO module initialization...")
-	utils.LogInfo("Web", fmt.Sprintf("Address:           http://%s:%s", localIP, WebPort))
-	utils.SaveEndpoint("web", fmt.Sprintf("http://%s:%s", localIP, WebPort))
+	utils.LogInfo("Web", fmt.Sprintf("Address:           http://%s:%s", localIP, portStr))
+	utils.SaveEndpoint("web", fmt.Sprintf("http://%s:%s", localIP, portStr))
 
 	// Start server with heartbeat
 	go reportMetrics(nm)
 
-	if err := http.ListenAndServe("0.0.0.0:"+WebPort, nil); err != nil {
+	if err := http.ListenAndServe("0.0.0.0:"+portStr, nil); err != nil {
 		utils.LogWarning("Web", fmt.Sprintf("Server error: %v", err))
 	}
 }
@@ -68,12 +70,13 @@ func serveWebUI(w http.ResponseWriter, r *http.Request) {
 
 // statusHandler returns the web service status
 func statusHandler(w http.ResponseWriter, r *http.Request) {
+	cfg := config.Get()
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(`{
 		"status": "online",
 		"service": "web",
 		"version": "v4.0.0-PRO",
-		"port": "` + WebPort + `"
+		"port": "` + fmt.Sprintf("%d", cfg.Services.Web.Port) + `"
 	}`))
 }
 
@@ -99,9 +102,10 @@ func reportMetrics(nm *network.NetworkManager) {
 
 	// Update service status periodically
 	for {
+		cfg := config.Get()
 		nm.UpdateServiceMetrics("web", map[string]interface{}{
 			"status": "online",
-			"port":   WebPort,
+			"port":   fmt.Sprintf("%d", cfg.Services.Web.Port),
 		})
 		<-time.After(5 * time.Second)
 	}

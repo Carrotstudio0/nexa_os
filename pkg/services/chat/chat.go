@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/MultiX0/nexa/pkg/analytics"
 	"github.com/MultiX0/nexa/pkg/config"
 	"github.com/MultiX0/nexa/pkg/governance"
 	"github.com/MultiX0/nexa/pkg/network"
@@ -124,6 +125,21 @@ func handleSend(w http.ResponseWriter, r *http.Request) {
 	}
 
 	utils.LogInfo("Chat", fmt.Sprintf("[%s]: %s", msg.Sender, msg.Content))
+
+	// Track in analytics
+	sessionID := "unknown"
+	if cookie, err := r.Cookie("session_id"); err == nil {
+		sessionID = cookie.Value
+	}
+	analytics.GetManager().TrackAction(sessionID, analytics.Action{
+		Type: "chat_message",
+		Path: "/chat",
+		Data: map[string]interface{}{
+			"sender": msg.Sender,
+			"length": len(msg.Content),
+		},
+	})
+
 	w.WriteHeader(201)
 	json.NewEncoder(w).Encode(msg)
 }

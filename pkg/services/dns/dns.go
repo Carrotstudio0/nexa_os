@@ -108,7 +108,7 @@ func Start(nm *network.NetworkManager, gm *governance.GovernanceManager) {
 		// Fall back to plain TCP if TLS fails
 		ln, err := net.Listen("tcp", "0.0.0.0:"+config.DNSPort)
 		if err != nil {
-			utils.LogFatal("DNS", fmt.Sprintf("Failed to listen on port %s: %v", config.DNSPort, err))
+			utils.LogError("DNS", fmt.Sprintf("Failed to listen on port %s", config.DNSPort), err)
 			return
 		}
 		defer ln.Close()
@@ -119,7 +119,7 @@ func Start(nm *network.NetworkManager, gm *governance.GovernanceManager) {
 	tlsConfig := &tls.Config{Certificates: []tls.Certificate{cert}}
 	ln, err := tls.Listen("tcp", "0.0.0.0:"+config.DNSPort, tlsConfig)
 	if err != nil {
-		utils.LogFatal("DNS", fmt.Sprintf("Failed to listen on port %s (TLS): %v", config.DNSPort, err))
+		utils.LogError("DNS", fmt.Sprintf("Failed to listen on port %s (TLS)", config.DNSPort), err)
 		return
 	}
 	defer ln.Close()

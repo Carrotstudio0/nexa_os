@@ -1,0 +1,34 @@
+system:
+  name: "Nexa Universal Server"
+  version: "v4.0.0-PRO"
+  environment: "production"
+
+network:
+  use_localhost_force: false # Set true for strict local dev
+  hotspot_enabled: true      # Set false on Linux servers
+
+server:
+  host: "0.0.0.0"
+  port: 1413
+
+services:
+  gateway:
+    port: 8000
+    host: "0.0.0.0"
+  dns:
+    port: 53
+    host: "0.0.0.0"
+  dashboard:
+    port: 7000
+  admin:
+    port: 8080
+  storage:
+    port: 8081
+  chat:
+    port: 8082
+  web:
+    port: 3000
+
+paths:
+  data_dir: "./data"
+  static_dir: "./web"
